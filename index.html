@@ -191,6 +191,7 @@ const DEFAULT_SETTINGS = {
   // カクテル=スプリッツ想定：スパークリングワイン⅓+カンパリ⅓+炭酸水⅓ ≒ 12%（アペロールなら約7%）
   abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, abv_cocktail: 12, // ブラックニッカ クリア=37%
   kcal100_water: 0, abv_water: 0, // チェイサーはノーカン
+  burnGh: 5, // 肝臓のアルコール分解速度（g/時）。「🕐◯時に抜ける」の根拠
 };
 const getMl = k => (store.settings && store.settings[k]) || DEFAULT_SETTINGS[k];
 const cupMlOf = k => DRINKS[k].cupMl || getMl(k);
@@ -336,7 +337,7 @@ function statsFor(session, name) {
 }
 const fmtN = n => Number.isInteger(n) ? n : n.toFixed(1);
 // 純アルgの換算表示。単位はタップで切替（🍺本分⇄🍷杯分⇄🥃プッシュ分）・マスタ連動
-const EQ_UNITS = { beer: ['🍺', '本分'], wine: ['🍷', '杯分'], whisky: ['🥃', 'プッシュ分'] };
+const EQ_UNITS = { beer: ['🍺', '缶分'], wine: ['🍷', '杯分'], whisky: ['🥃', 'プッシュ分'] };
 const eqUnit = () => store.settings.eqUnit || 'beer';
 function eqLabel(g) {
   const u = eqUnit();
@@ -439,7 +440,7 @@ function render() {
   const ranked = S().people.map(n => ({ n, g: alcGFor(n) }))
     .filter(p => p.g > 0).sort((a, b) => b.g - a.g).slice(0, 3);
   document.getElementById('ranking').innerHTML = ranked.length
-    ? `<span class="eqToggle" onclick="cycleEq()">${EQ_UNITS[eqUnit()][0]}換算 ⇄</span>` +
+    ? `<span class="eqToggle" onclick="cycleEq()">${EQ_UNITS[eqUnit()][0]}${getMl(eqUnit())}ml換算 ⇄</span>` +
       ranked.map((p, i) => `<span>${medals[i]} <b>${p.n}</b> <span class="g">${eqLabel(p.g)}</span></span>`).join('')
     : '';
 
@@ -468,6 +469,11 @@ function render() {
     let [tier, mood] = TIERS[ti];
     if (goodChaser) mood += '（💧効いてる）';
     else if (alcG >= 40 && waterMl < alcMl * 0.5) mood += '　💧水も飲め！';
+    if (alcG >= 20) {
+      const end = new Date(Date.now() + alcG / getMl('burnGh') * 3600e3);
+      const tomorrow = end.getDate() !== new Date().getDate();
+      mood += `　🕐${tomorrow ? '明日' : ''}${end.getHours()}時に抜ける`;
+    }
     const esc = name.replace(/'/g, "\\'");
     return `<div class="person" onclick="cardClick('${esc}', event)"
       onpointerdown="pressStart('${esc}', event)" onpointerup="pressEnd()" onpointerleave="pressEnd()">
