@@ -361,8 +361,8 @@ function render() {
     const st = statsFor(S(), name);
     const cur = st[currentDrink] || { taps: 0, ml: 0, cups: 0 };
     const glasses = Object.entries(st).map(([k, v]) =>
-      v.taps <= 12 ? DRINKS[k].icon.repeat(v.taps) : DRINKS[k].icon.repeat(12) + `+${v.taps - 12}`
-    ).join(' ');
+      `<div>${v.taps <= 12 ? DRINKS[k].icon.repeat(v.taps) : DRINKS[k].icon.repeat(12) + `+${v.taps - 12}`}</div>`
+    ).join('');
     return `<div class="person" onclick="tap('${name.replace(/'/g, "\\'")}', event)">
       <div class="del" onclick="removePerson('${name.replace(/'/g, "\\'")}', event)">✕</div>
       <div class="name">${name}</div>
