@@ -44,6 +44,10 @@
   }
   .half { font-size: 15px; color: var(--sub); vertical-align: middle; }
   .hint { font-size: 13px; color: var(--sub); margin: -6px 0 12px; }
+  .ranking { display: flex; gap: 16px; flex-wrap: wrap; font-size: 16px; margin-bottom: 12px; align-items: center; }
+  .ranking:empty { display: none; }
+  .ranking b { color: var(--amber); }
+  .ranking .g { font-size: 13px; color: var(--sub); }
   .person:active { background: var(--card-tap); transform: scale(0.97); }
   .person .name { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
   .person .count { font-size: 44px; font-weight: bold; color: var(--amber); line-height: 1.1; }
@@ -108,6 +112,8 @@
     <div class="bar"><div id="bottleBar"></div></div>
   </div>
 </header>
+
+<div class="ranking" id="ranking"></div>
 
 <div class="grid" id="grid"></div>
 
@@ -325,6 +331,10 @@ function statsFor(session, name) {
   return out;
 }
 const fmtN = n => Number.isInteger(n) ? n : n.toFixed(1);
+function alcGFor(name) {
+  const st = statsFor(S(), name);
+  return Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('abv_' + k) / 100 * 0.8, 0);
+}
 function whiskyUsedMl(session) {
   return session.events.filter(e => e.drink === 'whisky')
     .reduce((a, e) => a + (e.amt || 1), 0) * getMl('whisky');
@@ -406,6 +416,13 @@ function render() {
   document.getElementById('bottleBar').style.width = (remain / bottleMl * 100) + '%';
   renderSettings();
   wrap.style.display = 'block';
+
+  // 摂取量トップ3ランキング（タップごとにリアルタイム更新）
+  const medals = ['🥇', '🥈', '🥉'];
+  const ranked = S().people.map(n => ({ n, g: alcGFor(n) }))
+    .filter(p => p.g > 0).sort((a, b) => b.g - a.g).slice(0, 3);
+  document.getElementById('ranking').innerHTML =
+    ranked.map((p, i) => `<span>${medals[i]} <b>${p.n}</b> <span class="g">${Math.round(p.g)}g</span></span>`).join('');
 
   // 参加者カード
   const d = DRINKS[currentDrink];
