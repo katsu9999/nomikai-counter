@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#14100c">
 <title>GG プッシュカウンター</title>
 <style>
   :root {
@@ -17,6 +20,7 @@
     --danger: #c05040;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  button, .person, .addCard, .eqToggle, .drinkTabs button { touch-action: manipulation; }
   body {
     background: var(--bg); color: var(--text);
     font-family: -apple-system, "Hiragino Sans", sans-serif;
@@ -144,6 +148,29 @@
     animation: rise .7s ease-out forwards; z-index: 99;
   }
   @keyframes rise { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-50px); } }
+
+  /* iPad Pro 12.9" など大画面向け */
+  @media (min-width: 1024px) {
+    body { padding: 24px 32px; }
+    h1 { font-size: 26px; }
+    .drinkTabs button { font-size: 22px; padding: 12px 20px; }
+    .grid { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .person { padding: 24px 20px; }
+    .person .name { font-size: 28px; }
+    .person .count { font-size: 64px; }
+    .person .glasses { font-size: 26px; }
+    .person .alc, .person .kcal, .person .gN { font-size: 15px; }
+    .addCard { font-size: 20px; min-height: 180px; }
+    .toolbar button { font-size: 17px; padding: 16px 22px; }
+    .r0 .rName { font-size: 34px; }
+    .r0 .rMedal { font-size: 38px; }
+    .r0 .rBar { height: 24px; }
+    .r1 .rName { font-size: 22px; }
+    .r1 .rBar { height: 15px; }
+    .r2 .rName { font-size: 18px; }
+    .rVal, .r0 .rVal { font-size: 17px; }
+    .hint { font-size: 15px; }
+  }
 </style>
 </head>
 <body>
