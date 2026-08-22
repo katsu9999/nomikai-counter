@@ -489,6 +489,7 @@
   <button id="btnQr" onclick="openQr()">📱 QR参加</button>
   <button id="btnWater" onclick="SFX.click();waterBreak()">💧 水飲みタイム</button>
   <button id="btnKanpai" onclick="SFX.click();kanpaiTime()">🍻 乾杯</button>
+  <button id="btnVoice" onclick="toggleVoice()">🎙️ 乾杯検知</button>
   <button id="btnJime1" onclick="SFX.click();ipponJime(1)">👏 一本締め</button>
   <button id="btnJime3" onclick="SFX.click();ipponJime(3)">👏 三本締め</button>
   <button id="btnSettings" onclick="SFX.click();toggle('settingsSec')">⚙️ 設定</button>
@@ -658,6 +659,7 @@ function applyStatic() {
   document.getElementById('sportBtn').textContent = SPORTS[sport()];
   document.getElementById('soundBtn').textContent = SOUND_THEMES[soundTheme()];
   document.getElementById('btnQr').style.display = SB_ON ? '' : 'none';
+  applyVoiceBtn();
 }
 const cardSizeOv = {}; // カード個別のサイズ上書き（'compact'|'detail'）
 function toggleCompact() {
@@ -1203,6 +1205,49 @@ function kanpaiTime() {
     done: ja ? '🍻 カンパーイ！！！' : '🍻 KANPAI!!!',
   });
 }
+// 🎙️ 「乾杯」音声検知 → 乾杯ターイム自動発動（60秒クールダウン）
+let recog = null, voiceOn = false, lastVoiceKanpai = 0;
+function toggleVoice() {
+  const ja = lang() === 'ja';
+  if (voiceOn) {
+    voiceOn = false;
+    try { recog && recog.stop(); } catch (e) {}
+    SFX.undo(); applyVoiceBtn();
+    return;
+  }
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { alert(ja ? 'このブラウザは音声認識に非対応です' : 'Speech recognition not supported here'); return; }
+  recog = new SR();
+  recog.lang = ja ? 'ja-JP' : 'en-GB';
+  recog.continuous = true;
+  recog.interimResults = true;
+  recog.onresult = ev => {
+    let txt = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) txt += ev.results[i][0].transcript;
+    if (/乾杯|かんぱい|カンパイ|カンパーイ|cheers/i.test(txt) && Date.now() - lastVoiceKanpai > 60000) {
+      lastVoiceKanpai = Date.now();
+      kanpaiTime();
+    }
+  };
+  recog.onend = () => { if (voiceOn) { try { recog.start(); } catch (e) {} } }; // 勝手に止まったら再開
+  recog.onerror = e => {
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+      voiceOn = false; applyVoiceBtn();
+      showToast(ja ? '🎙️ マイクの許可が必要です' : '🎙️ Mic permission needed');
+    }
+  };
+  try { recog.start(); voiceOn = true; SFX.tab(); } catch (e) {}
+  applyVoiceBtn();
+}
+function applyVoiceBtn() {
+  const b = document.getElementById('btnVoice');
+  if (!b) return;
+  const ja = lang() === 'ja';
+  b.textContent = voiceOn ? (ja ? '🎙️ 乾杯検知ON' : '🎙️ Listening…') : (ja ? '🎙️ 乾杯検知' : '🎙️ Kanpai voice');
+  b.style.borderColor = voiceOn ? 'var(--danger)' : '';
+  b.style.color = voiceOn ? 'var(--danger)' : '';
+}
+
 // 👏 一本締め／三本締め（いつでも発動・会は締めない）
 function ipponJime(rounds = 1) {
   if (GUEST_ROOM || document.querySelector('.waterBreak')) return;
