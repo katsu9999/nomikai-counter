@@ -194,31 +194,52 @@
     60% { transform: scale(1); }
     100% { opacity: 0; }
   }
-  .cut { position: fixed; inset: 0; z-index: 95; pointer-events: none; background: radial-gradient(circle, rgba(0,0,0,0) 40%, rgba(0,0,0,.5)); animation: cutFade 1.4s forwards; }
-  @keyframes cutFade { 0% { opacity: 0; } 10%, 80% { opacity: 1; } 100% { opacity: 0; } }
+  .cut { position: fixed; inset: 0; z-index: 95; pointer-events: none; background: radial-gradient(circle, rgba(0,0,0,0) 40%, rgba(0,0,0,.5)); animation: cutFade 4.5s forwards; }
+  @keyframes cutFade { 0% { opacity: 0; } 5%, 88% { opacity: 1; } 100% { opacity: 0; } }
   .cutBall { position: absolute; top: 28%; left: -10%; font-size: 72px; animation: ballFly 1.1s ease-in forwards; }
+  .cutBall.b2 { top: 60%; animation: ballFly 1.1s ease-in 2.1s backwards; animation-fill-mode: both; }
   @keyframes ballFly {
     0% { left: -10%; transform: translateY(0) rotate(0); }
     50% { transform: translateY(-90px) rotate(360deg); }
     100% { left: 105%; transform: translateY(12px) rotate(900deg); }
   }
   .cutText {
-    position: absolute; top: 44%; left: 50%; font-size: min(64px, 9vw); font-weight: 900; font-style: italic;
+    position: absolute; top: 40%; left: 50%; font-size: min(64px, 9vw); font-weight: 900; font-style: italic;
     color: #fff; text-shadow: 0 0 26px var(--amber), 0 4px 0 #7a5510; white-space: nowrap;
-    animation: slam 1.4s cubic-bezier(.2, 1.4, .4, 1) forwards;
+    animation: slam 4.5s cubic-bezier(.2, 1.4, .4, 1) forwards;
   }
   @keyframes slam {
     0% { transform: translate(-50%, -50%) scale(3) rotate(-6deg); opacity: 0; }
-    18% { transform: translate(-50%, -50%) scale(1) rotate(-3deg); opacity: 1; }
-    80% { transform: translate(-50%, -50%) scale(1) rotate(-3deg); opacity: 1; }
+    6% { transform: translate(-50%, -50%) scale(1) rotate(-3deg); opacity: 1; }
+    88% { transform: translate(-50%, -50%) scale(1) rotate(-3deg); opacity: 1; }
     100% { transform: translate(-50%, -50%) scale(1.08) rotate(-3deg); opacity: 0; }
   }
-  .cutIcon { position: absolute; top: 66%; left: 50%; transform: translateX(-50%); font-size: 96px; animation: crackerPop 1.4s ease-out forwards; }
+  .cutSub {
+    position: absolute; top: 56%; left: 50%; font-size: min(38px, 6vw); font-weight: 900;
+    color: #ffe08a; text-shadow: 0 0 18px rgba(0,0,0,.8), 0 0 22px var(--amber); white-space: nowrap;
+    animation: subIn 4.5s ease-out forwards;
+  }
+  @keyframes subIn {
+    0%, 24% { transform: translate(-50%, -50%) scale(.4); opacity: 0; }
+    30% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+    36% { transform: translate(-50%, -50%) scale(1); }
+    88% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.05); opacity: 0; }
+  }
+  .cutIcon { position: absolute; top: 70%; left: 50%; font-size: 96px; transform: translateX(-50%); animation: iconPulse 4.5s ease-out forwards; }
+  @keyframes iconPulse {
+    0% { transform: translateX(-50%) scale(.3); opacity: 0; }
+    8% { transform: translateX(-50%) scale(1.4); opacity: 1; }
+    16% { transform: translateX(-50%) scale(1); }
+    40% { transform: translateX(-50%) scale(1.12); }
+    60% { transform: translateX(-50%) scale(1); }
+    88% { transform: translateX(-50%) scale(1.08); opacity: 1; }
+    100% { transform: translateX(-50%) scale(1); opacity: 0; }
+  }
   .waterCut { background: radial-gradient(circle, rgba(0, 0, 0, 0) 40%, rgba(20, 60, 90, .55)); }
   .waterCut .cutText { text-shadow: 0 0 26px #7ec4e8, 0 4px 0 #1a4a66; }
-  .eventCut { animation-duration: 2.8s; }
-  .eventCut .cutText { animation-duration: 2.8s; color: #ffe08a; }
-  .eventCut .cutIcon { animation-duration: 2.8s; font-size: 120px; }
+  .eventCut .cutText { color: #ffe08a; }
+  .eventCut .cutIcon { font-size: 120px; }
   .hype {
     position: fixed; z-index: 97; font-weight: 900; font-size: 38px; color: var(--amber);
     text-shadow: 0 2px 12px rgba(0,0,0,.6); pointer-events: none; white-space: nowrap;
@@ -648,20 +669,29 @@ const CUT_TEXTS = {
   },
 };
 SFX.ace = () => toneSeq([[180, 0.05], [880, 0.07], [1320, 0.16]], 'square', 0.18, 0.1);
-function megaReaction(drink) {
-  // テニス実況ムービー：🎾が横切り、実況テキストがスラムイン、下でグラスがボーン
+function megaReaction(drink, name) {
+  // テニス実況ムービー（4.5秒2幕構成）：実況スラム → 名前入りサブテキスト → 🎾2往復
+  document.querySelectorAll('.cut:not(.eventCut)').forEach(e => e.remove()); // 連打時は最新だけ表示
   const ov = document.createElement('div');
   ov.className = 'cut' + (drink === 'water' ? ' waterCut' : '');
   // チェイサーは毎回必ずリカバリー称賛。お酒はドリンク専用＋共通からランダム
   const cutPool = drink === 'water'
     ? CUT_TEXTS[lang()].water
     : (CUT_TEXTS[lang()][drink] || []).concat(CUT_TEXTS[lang()].common);
-  ov.innerHTML = `<div class="cutBall">🎾</div>
+  const st = statsFor(S(), name);
+  const cups = Object.entries(st).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.taps), 0);
+  const wcups = st.water ? st.water.taps : 0;
+  const sub = drink === 'water'
+    ? (lang() === 'ja' ? `${name}、水${fmtN(wcups)}杯目！ナイスケア！` : `${name}: water #${fmtN(wcups)}! Great care!`)
+    : (lang() === 'ja' ? `${name}、${fmtN(cups)}杯目！！` : `${name}: drink #${fmtN(cups)}!!`);
+  ov.innerHTML = `<div class="cutBall">🎾</div><div class="cutBall b2">🎾</div>
     <div class="cutText">${cutPool[Math.floor(Math.random() * cutPool.length)]}</div>
+    <div class="cutSub">${sub}</div>
     <div class="cutIcon">${DRINKS[drink].icon}</div>`;
   document.body.appendChild(ov);
-  setTimeout(() => ov.remove(), 1400);
+  setTimeout(() => ov.remove(), 4600);
   SFX.ace();
+  toneSeq([[659, 0.09], [784, 0.09], [988, 0.22]], 'triangle', 0.15, 1.4); // サブテキストで追いファンファーレ
   // 煽りテキストも追加でランダム出現
   const pool = (HYPE[lang()][drink] || []).concat(HYPE_COMMON[lang()]);
   const h = document.createElement('div');
@@ -708,9 +738,9 @@ function partyEvent(idle) {
   const [icon, text] = list[Math.floor(Math.random() * list.length)];
   const ov = document.createElement('div');
   ov.className = 'cut eventCut';
-  ov.innerHTML = `<div class="cutBall">🎾</div><div class="cutText">${text}</div><div class="cutIcon">${icon}</div>`;
+  ov.innerHTML = `<div class="cutBall">🎾</div><div class="cutBall b2">🎾</div><div class="cutText">${text}</div><div class="cutIcon">${icon}</div>`;
   document.body.appendChild(ov);
-  setTimeout(() => ov.remove(), 2800);
+  setTimeout(() => ov.remove(), 4600);
   SFX.close(); confetti(30);
   document.body.classList.remove('shake');
   void document.body.offsetWidth;
@@ -779,7 +809,7 @@ function tap(name, ev, amt = 1) {
     document.body.appendChild(gl);
     setTimeout(() => gl.remove(), 1100);
     sparks(ev.clientX, ev.clientY);
-    megaReaction(currentDrink);
+    megaReaction(currentDrink, name);
   }
 }
 // 飲みすぎ警報：しきい値を超えた瞬間にピコンピコン＋トースト
