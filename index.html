@@ -46,6 +46,7 @@
   .person .count { font-size: 44px; font-weight: bold; color: var(--amber); line-height: 1.1; }
   .person .unit { font-size: 13px; color: var(--sub); }
   .person .detail { font-size: 13px; color: var(--sub); margin-top: 6px; }
+  .person .glasses { margin-top: 8px; font-size: 21px; line-height: 1.35; word-break: break-all; min-height: 28px; }
   .person .del {
     position: absolute; top: 8px; right: 10px; color: var(--sub); font-size: 14px;
     padding: 4px 8px; opacity: .5;
@@ -72,6 +73,11 @@
   .log { list-style: none; font-size: 14px; color: var(--sub); max-height: 180px; overflow-y: auto; }
   .log li { padding: 5px 0; border-bottom: 1px solid var(--line); }
   .log li b { color: var(--text); }
+  .setRow { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 15px; }
+  .setRow input {
+    width: 90px; padding: 8px; font-size: 16px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); text-align: right;
+  }
   .historyItem { padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; }
   .historyItem .sum { font-size: 13px; color: var(--sub); margin-top: 3px; }
   .hidden { display: none; }
@@ -101,8 +107,17 @@
   <button onclick="toggle('historySec'); renderHistory()">📜 過去の会</button>
   <button onclick="exportJSON()">⬇️ JSON保存</button>
   <button onclick="importJSON()">⬆️ 読み込み</button>
+  <button onclick="toggle('settingsSec')">⚙️ 設定</button>
   <button class="warn" onclick="endSession()">🏁 今日の会を締める</button>
 </div>
+
+<section id="settingsSec" class="hidden">
+  <h2>⚙️ マスタ設定（1タップあたりの量・後から変更OK）</h2>
+  <div class="setRow">🥃 1プッシュ <input type="number" id="set_whisky" onchange="setMaster('whisky', this.value)"> ml</div>
+  <div class="setRow">🍷 1杯 <input type="number" id="set_wine" onchange="setMaster('wine', this.value)"> ml</div>
+  <div class="setRow">🍺 1杯 <input type="number" id="set_beer" onchange="setMaster('beer', this.value)"> ml</div>
+  <div class="setRow">🥃 ボトル容量 <input type="number" id="set_bottle" onchange="setMaster('bottle', this.value)"> ml</div>
+</section>
 
 <section id="commentSec" class="hidden">
   <h2>💬 今日のコメント</h2>
@@ -127,17 +142,24 @@
 
 <script>
 const DRINKS = {
-  whisky: { icon: '🥃', label: 'ウイスキー', mlPerTap: 50,  tapName: 'プッシュ', cupMl: 30,  cupName: 'シングル', bottleMl: 2700 },
-  wine:   { icon: '🍷', label: 'ワイン',     mlPerTap: 175, tapName: '杯',       cupMl: 175, cupName: '杯',       bottleMl: null },
-  beer:   { icon: '🍺', label: 'ビール',     mlPerTap: 350, tapName: '杯',       cupMl: 350, cupName: '杯',       bottleMl: null },
+  whisky: { icon: '🥃', label: 'ウイスキー', tapName: 'プッシュ', cupMl: 30,   cupName: 'シングル' },
+  wine:   { icon: '🍷', label: 'ワイン',     tapName: '杯',       cupMl: null, cupName: '杯' },
+  beer:   { icon: '🍺', label: 'ビール',     tapName: '杯',       cupMl: null, cupName: '杯' },
 };
+// マスタ設定（⚙️設定から変更可・localStorageに保存される）
+const DEFAULT_SETTINGS = { whisky: 25, wine: 175, beer: 350, bottle: 2700 };
+const getMl = k => (store.settings && store.settings[k]) || DEFAULT_SETTINGS[k];
+const cupMlOf = k => DRINKS[k].cupMl || getMl(k);
 const KEY = 'nomikai-counter-v1';
 let store = load();
 let currentDrink = 'whisky';
 
 function load() {
-  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.current) return s; } catch (e) { /* storage不可環境でも動かす */ }
-  return { current: newSession(), history: [] };
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) { /* storage不可環境でも動かす */ }
+  if (!s || !s.current) s = { current: newSession(), history: [] };
+  s.settings = Object.assign({}, DEFAULT_SETTINGS, s.settings || {});
+  return s;
 }
 function newSession() {
   return { date: new Date().toISOString(), people: [], events: [], comments: [] };
@@ -153,31 +175,50 @@ function playSound(kind) {
     AC = AC || new (window.AudioContext || window.webkitAudioContext)();
     if (AC.state === 'suspended') AC.resume();
     const t0 = AC.currentTime;
-    if (kind === 'beer') {
-      // プシュ＋シュワシュワ
-      const len = AC.sampleRate * 0.5;
+    const noiseBuf = dur => {
+      const len = Math.floor(AC.sampleRate * dur);
       const buf = AC.createBuffer(1, len, AC.sampleRate);
       const d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 1.5);
-      const src = AC.createBufferSource(); src.buffer = buf;
-      const f = AC.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 3000;
-      const g = AC.createGain(); g.gain.setValueAtTime(0.5, t0);
-      src.connect(f); f.connect(g); g.connect(AC.destination); src.start(t0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      return buf;
+    };
+    const noise = (start, dur, filterType, freq, peak) => {
+      const src = AC.createBufferSource(); src.buffer = noiseBuf(dur);
+      const f = AC.createBiquadFilter(); f.type = filterType; f.frequency.value = freq;
+      const g = AC.createGain();
+      g.gain.setValueAtTime(0.0001, start);
+      g.gain.exponentialRampToValueAtTime(peak, start + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+      src.connect(f); f.connect(g); g.connect(AC.destination);
+      src.start(start);
+      return f;
+    };
+    const glug = (start, f1, f2, dur, vol) => {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(f1, start);
+      o.frequency.exponentialRampToValueAtTime(f2, start + dur * 0.8);
+      g.gain.setValueAtTime(0, start);
+      g.gain.linearRampToValueAtTime(vol, start + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+      o.connect(g); g.connect(AC.destination);
+      o.start(start); o.stop(start + dur + 0.02);
+    };
+    if (kind === 'beer') {
+      // カシュッ（缶オープン）→ プシュー → 泡がジューッと注がれる
+      noise(t0, 0.06, 'highpass', 2500, 0.9);
+      noise(t0 + 0.05, 0.25, 'highpass', 5000, 0.5);
+      const foam = noise(t0 + 0.3, 1.0, 'bandpass', 4500, 0.4);
+      foam.frequency.setValueAtTime(5500, t0 + 0.3);
+      foam.frequency.exponentialRampToValueAtTime(2200, t0 + 1.3);
+    } else if (kind === 'wine') {
+      // トゥクトゥクトゥク（注ぐ音）
+      [0, 0.14, 0.28, 0.42].forEach((dt, i) => glug(t0 + dt, 480 + i * 60, 240, 0.12, 0.35));
     } else {
-      // トクトク注ぐ音（ウイスキー低め・ワイン高め）
-      const base = kind === 'wine' ? 400 : 220;
-      for (let i = 0; i < 3; i++) {
-        const o = AC.createOscillator(), g = AC.createGain();
-        const ts = t0 + i * 0.11;
-        o.type = 'sine';
-        o.frequency.setValueAtTime(base + i * 40, ts);
-        o.frequency.exponentialRampToValueAtTime(base * 0.55, ts + 0.09);
-        g.gain.setValueAtTime(0, ts);
-        g.gain.linearRampToValueAtTime(0.35, ts + 0.015);
-        g.gain.exponentialRampToValueAtTime(0.001, ts + 0.1);
-        o.connect(g); g.connect(AC.destination);
-        o.start(ts); o.stop(ts + 0.12);
-      }
+      // ウイスキー：ポンプのシュコッ（プッシュ感）＋トポッ
+      noise(t0, 0.09, 'bandpass', 1200, 0.7);
+      glug(t0 + 0.09, 180, 90, 0.14, 0.5);
+      glug(t0 + 0.24, 420, 250, 0.1, 0.3);
     }
   } catch (e) { /* 音が出なくてもカウントは止めない */ }
 }
@@ -226,14 +267,14 @@ function addComment() {
 // ---- 集計 ----
 function statsFor(session, name) {
   const out = {};
-  for (const [k, d] of Object.entries(DRINKS)) {
+  for (const k of Object.keys(DRINKS)) {
     const n = session.events.filter(e => e.person === name && e.drink === k).length;
-    if (n) out[k] = { taps: n, ml: n * d.mlPerTap, cups: (n * d.mlPerTap / d.cupMl) };
+    if (n) out[k] = { taps: n, ml: n * getMl(k), cups: (n * getMl(k) / cupMlOf(k)) };
   }
   return out;
 }
 function whiskyUsedMl(session) {
-  return session.events.filter(e => e.drink === 'whisky').length * DRINKS.whisky.mlPerTap;
+  return session.events.filter(e => e.drink === 'whisky').length * getMl('whisky');
 }
 
 // ---- 会の終了・履歴 ----
@@ -281,6 +322,19 @@ function importJSON() {
   input.click();
 }
 
+// ---- マスタ設定 ----
+function setMaster(k, v) {
+  const n = parseInt(v, 10);
+  if (!n || n <= 0) { render(); return; }
+  store.settings[k] = n; save(); render();
+}
+function renderSettings() {
+  for (const k of ['whisky', 'wine', 'beer', 'bottle']) {
+    const el = document.getElementById('set_' + k);
+    if (el && document.activeElement !== el) el.value = getMl(k);
+  }
+}
+
 // ---- 表示 ----
 function toggle(id) { document.getElementById(id).classList.toggle('hidden'); }
 
@@ -292,10 +346,12 @@ function render() {
 
   // ボトル残量（ウイスキーのみ）
   const wrap = document.getElementById('bottleWrap');
+  const bottleMl = getMl('bottle');
   const used = whiskyUsedMl(S());
-  const remain = Math.max(0, DRINKS.whisky.bottleMl - used);
-  document.getElementById('bottleText').textContent = `${(remain / 1000).toFixed(2)}L / 2.7L`;
-  document.getElementById('bottleBar').style.width = (remain / DRINKS.whisky.bottleMl * 100) + '%';
+  const remain = Math.max(0, bottleMl - used);
+  document.getElementById('bottleText').textContent = `${(remain / 1000).toFixed(2)}L / ${(bottleMl / 1000).toFixed(1)}L`;
+  document.getElementById('bottleBar').style.width = (remain / bottleMl * 100) + '%';
+  renderSettings();
   wrap.style.display = 'block';
 
   // 参加者カード
@@ -304,14 +360,15 @@ function render() {
   grid.innerHTML = S().people.map(name => {
     const st = statsFor(S(), name);
     const cur = st[currentDrink] || { taps: 0, ml: 0, cups: 0 };
-    const others = Object.entries(st).filter(([k]) => k !== currentDrink)
-      .map(([k, v]) => `${DRINKS[k].icon}${v.taps}`).join(' ');
+    const glasses = Object.entries(st).map(([k, v]) =>
+      v.taps <= 12 ? DRINKS[k].icon.repeat(v.taps) : DRINKS[k].icon.repeat(12) + `+${v.taps - 12}`
+    ).join(' ');
     return `<div class="person" onclick="tap('${name.replace(/'/g, "\\'")}', event)">
       <div class="del" onclick="removePerson('${name.replace(/'/g, "\\'")}', event)">✕</div>
       <div class="name">${name}</div>
       <div class="count">${cur.taps}</div>
       <div class="unit">${d.tapName}（${d.icon} 約${cur.ml}ml ≒ ${cur.cups.toFixed(1)}${d.cupName}）</div>
-      <div class="detail">${others || '&nbsp;'}</div>
+      <div class="glasses">${glasses || '&nbsp;'}</div>
     </div>`;
   }).join('') + `<div class="addCard" onclick="addPerson()">＋ 参加者を追加</div>`;
 
