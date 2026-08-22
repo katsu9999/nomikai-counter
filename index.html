@@ -152,6 +152,24 @@
   .person .del.sizeBtn { left: 44px; right: auto; }
   .miniHint { margin-top: 6px; font-size: 11px; color: var(--sub); }
   .person.mini { cursor: pointer; }
+  /* 弾幕（スマホからのコメントが流れる） */
+  .danmaku {
+    position: fixed; left: 100vw; z-index: 93; pointer-events: none;
+    font-size: 28px; font-weight: bold; color: #fff; white-space: nowrap;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, .95), 0 0 14px rgba(240, 184, 64, .5);
+    animation: flyLeft linear forwards;
+  }
+  @keyframes flyLeft { to { transform: translateX(calc(-100vw - 100%)); } }
+  /* ゲスト（スマホリモコン）画面 */
+  .gWrap { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
+  .gWrap input { padding: 13px; font-size: 17px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  .gGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .gBtn {
+    font-size: 36px; padding: 16px 8px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 16px; color: var(--text); display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer;
+  }
+  .gBtn span { font-size: 14px; color: var(--sub); }
+  .gBtn:active { transform: scale(.95); background: var(--card-tap); }
   .person .dBtn {
     font-size: 24px; padding: 7px 9px; background: var(--bg); border: 1px solid var(--line);
     border-radius: 12px; cursor: pointer; transition: transform .08s;
@@ -428,9 +446,21 @@
   <button id="btnComment" onclick="SFX.click();toggle('commentSec')">💬 コメント</button>
   <button id="btnHistory" onclick="SFX.click();toggle('historySec'); renderHistory()">📜 過去の会</button>
   <button id="btnCompact" onclick="toggleCompact()">🗜️ コンパクト</button>
+  <button id="btnQr" onclick="openQr()">📱 QR参加</button>
   <button id="btnSettings" onclick="SFX.click();toggle('settingsSec')">⚙️ 設定</button>
   <button class="warn" id="btnEnd" onclick="endSession()">🏁 今日の会を締める</button>
 </div>
+
+<section id="qrSec" class="hidden">
+  <h2 id="qrTitle">📱 スマホから参加（QRを読むだけ）</h2>
+  <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+    <img id="qrImg" width="190" height="190" alt="QR" style="border-radius:10px;background:#fff;padding:8px">
+    <div style="flex:1;min-width:220px">
+      <div id="qrUrl" style="font-size:13px;color:var(--sub);word-break:break-all;margin-bottom:8px"></div>
+      <div class="hint" style="margin:0">QRを読む → 名前を入れる → 自分のスマホがリモコンに。<br>飲んだらスマホでタップ＝このiPadで実況発動、コメントは弾幕で流れる🎉</div>
+    </div>
+  </div>
+</section>
 
 <section id="settingsSec" class="hidden">
   <h2 id="settingsTitle">⚙️ マスタ設定（後から変更OK）</h2>
@@ -577,6 +607,7 @@ function applyStatic() {
   document.getElementById('langBtn').textContent = lang() === 'ja' ? 'EN' : '日本語';
   document.getElementById('btnCompact').textContent = store.settings.compact ? T('btnCompactOn') : T('btnCompactOff');
   document.getElementById('sportBtn').textContent = SPORTS[sport()];
+  document.getElementById('btnQr').style.display = SB_ON ? '' : 'none';
 }
 const cardSizeOv = {}; // カード個別のサイズ上書き（'compact'|'detail'）
 function toggleCompact() {
@@ -622,6 +653,12 @@ const getMl = k => (store.settings && store.settings[k]) || DEFAULT_SETTINGS[k];
 const cupMlOf = k => DRINKS[k].cupMl || getMl(k) || 1;
 const isNoCount = k => k === 'water' || k === 'vibe'; // 杯数・酒量にカウントしない種別
 const KEY = 'nomikai-counter-v1';
+// 📱 リモート参加（QR→スマホ投稿）。Supabaseの2値を貼ると有効化される
+const SB_URL = 'PASTE_SUPABASE_URL';   // 例: https://xxxx.supabase.co
+const SB_KEY = 'PASTE_ANON_KEY';       // Settings→API の anon/publishable キー
+const SB_ON = SB_URL.startsWith('https://');
+const SB_HEADERS = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
+const GUEST_ROOM = new URLSearchParams(location.search).get('room');
 let store = load();
 let currentDrink = 'whisky';
 
@@ -1034,7 +1071,7 @@ function partyEvent(idle) {
 let lastNag = Date.now();
 let idleThresh = 60000 + Math.random() * 40000;
 setInterval(() => {
-  if (!S().events.length) return;
+  if (GUEST_ROOM || !S().events.length) return;
   if (Date.now() - Math.max(lastTap, lastNag) >= idleThresh) {
     partyEvent(true);
     lastNag = Date.now();
@@ -1044,7 +1081,7 @@ setInterval(() => {
 // ランダムイベント：1〜2分ごと（不定期）
 (function scheduleEvent() {
   setTimeout(() => {
-    if (S().events.length) partyEvent(false);
+    if (!GUEST_ROOM && S().events.length) partyEvent(false);
     scheduleEvent();
   }, (1 + Math.random()) * 60000);
 })();
@@ -1545,6 +1582,112 @@ function renderHistory() {
   }).join('') || `<div class="sum" style="color:var(--sub);font-size:14px">${T('noHistory')}</div>`;
 }
 
+// ---- 📱 リモート参加：QR・ポーリング・弾幕・ゲスト画面 ----
+function danmaku(text) {
+  const d = document.createElement('div');
+  d.className = 'danmaku'; d.textContent = text;
+  d.style.top = (8 + Math.random() * 55) + 'vh';
+  d.style.animationDuration = (7 + Math.random() * 4) + 's';
+  document.body.appendChild(d);
+  setTimeout(() => d.remove(), 12000);
+  toneSeq([[1319, .07], [1568, .13]], 'sine', 0.18); // ぴよ♪
+}
+function roomCode() {
+  if (!store.settings.room) {
+    const cs = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    store.settings.room = Array.from({ length: 4 }, () => cs[Math.floor(Math.random() * cs.length)]).join('');
+    save();
+  }
+  return store.settings.room;
+}
+const guestUrl = () => location.origin + location.pathname + '?room=' + roomCode();
+function openQr() {
+  SFX.click();
+  if (!SB_ON) { alert('Supabase未設定（index.htmlのSB_URL/SB_KEYを設定）'); return; }
+  toggle('qrSec');
+  document.getElementById('qrImg').src =
+    'https://api.qrserver.com/v1/create-qr-code/?size=380x380&data=' + encodeURIComponent(guestUrl());
+  document.getElementById('qrUrl').textContent = guestUrl();
+  startRemote();
+}
+let remoteLastId = 0, remoteTimer = null;
+async function startRemote() {
+  if (!SB_ON || remoteTimer) return;
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/gubi_feed?room=eq.${roomCode()}&order=id.desc&limit=1&select=id`, { headers: SB_HEADERS });
+    const rows = await r.json();
+    remoteLastId = rows.length ? rows[0].id : 0;
+  } catch (e) {}
+  remoteTimer = setInterval(pollRemote, 3000);
+}
+async function pollRemote() {
+  try {
+    const r = await fetch(`${SB_URL}/rest/v1/gubi_feed?room=eq.${roomCode()}&id=gt.${remoteLastId}&order=id.asc&select=*&limit=30`, { headers: SB_HEADERS });
+    if (!r.ok) return;
+    const rows = await r.json();
+    for (const row of rows) {
+      remoteLastId = Math.max(remoteLastId, row.id);
+      const person = String(row.person || '').replace(/[<>"'`]/g, '').slice(0, 20);
+      const body = String(row.body || '').replace(/[<>`]/g, '').slice(0, 100);
+      if (!person) continue;
+      if (row.kind === 'drink' && DRINKS[row.drink]) {
+        if (!S().people.includes(person)) S().people.push(person);
+        tap(person, { clientX: innerWidth / 2, clientY: innerHeight * 0.35 }, row.amt || 1, row.drink);
+        danmaku(`${DRINKS[row.drink].icon} ${person}`);
+      } else if (row.kind === 'comment' && body) {
+        danmaku(`💬 ${person}: ${body}`);
+        S().comments.push({ t: Date.now(), text: `${person}: ${body}` });
+        save(); render();
+      }
+    }
+  } catch (e) {}
+}
+// ---- ゲスト（スマホリモコン）モード ----
+function initGuest() {
+  document.title = 'GG グビロワイヤル 📱';
+  let saved = '';
+  try { saved = (localStorage.getItem('gubi-guest-name') || '').replace(/["<>'`]/g, ''); } catch (e) {}
+  document.body.innerHTML = `
+    <div class="gWrap">
+      <h1 style="color:var(--amber);font-size:22px;text-align:center">🍻 GG グビロワイヤル 📱</h1>
+      <div class="hint" style="text-align:center;margin:0">ルーム: ${(GUEST_ROOM || '').replace(/[<>"'`]/g, '')}　飲んだらタップ→iPadで実況！</div>
+      <input id="gName" placeholder="なまえ / Name" value="${saved}">
+      <div class="gGrid">${Object.keys(DRINKS).map(k =>
+        `<button class="gBtn" onclick="gDrink('${k}')">${DRINKS[k].icon}<span>${DRINKS[k].label} / ${DRINKS[k].en}</span></button>`).join('')}
+      </div>
+      <div class="commentRow">
+        <input id="gComment" placeholder="コメント → iPadに弾幕で流れる">
+        <button onclick="gComment()">送信</button>
+      </div>
+      <div id="gStatus" class="hint" style="text-align:center;min-height:1.2em;margin:0"></div>
+    </div>`;
+}
+async function gSend(payload) {
+  const st = document.getElementById('gStatus');
+  try {
+    const r = await fetch(SB_URL + '/rest/v1/gubi_feed', { method: 'POST', headers: SB_HEADERS, body: JSON.stringify(payload) });
+    st.textContent = r.ok ? '✅ iPadに届いた！' : '⚠️ 送信失敗 (' + r.status + ')';
+  } catch (e) { st.textContent = '⚠️ 電波チェック！'; }
+  setTimeout(() => { st.textContent = ''; }, 2500);
+}
+function gGetName() {
+  const n = (document.getElementById('gName').value || '').trim().slice(0, 20);
+  if (n) try { localStorage.setItem('gubi-guest-name', n); } catch (e) {}
+  return n;
+}
+function gDrink(k) {
+  const n = gGetName(); if (!n) { alert('先に名前を入れてね'); return; }
+  playSound(k);
+  gSend({ room: GUEST_ROOM, person: n, kind: 'drink', drink: k, amt: 1 });
+}
+function gComment() {
+  const n = gGetName(); if (!n) { alert('先に名前を入れてね'); return; }
+  const el = document.getElementById('gComment');
+  const text = el.value.trim(); if (!text) return;
+  el.value = ''; SFX.click();
+  gSend({ room: GUEST_ROOM, person: n, kind: 'comment', body: text.slice(0, 100) });
+}
+
 // 画面を常時オンに保つ（Screen Wake Lock・Safari 16.4+）。タップ等の操作で取得、復帰時に再取得
 let wakeLock = null;
 async function keepAwake() {
@@ -1558,9 +1701,14 @@ async function keepAwake() {
 document.addEventListener('pointerdown', keepAwake);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
 
-applyStatic();
-buildSettings();
-render();
+if (GUEST_ROOM) {
+  initGuest(); // 📱 スマホリモコンモード
+} else {
+  applyStatic();
+  buildSettings();
+  render();
+  if (SB_ON && store.settings.room) startRemote(); // リロード後もポーリング再開
+}
 </script>
 </body>
 </html>
