@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ニッカ・プッシュカウンター</title>
+<style>
+  :root {
+    --bg: #14100c;
+    --card: #241c14;
+    --card-tap: #3a2c1c;
+    --amber: #d99a2b;
+    --amber-dim: #8a6320;
+    --text: #f2e8d8;
+    --sub: #a89878;
+    --line: #3c3020;
+    --danger: #c05040;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, "Hiragino Sans", sans-serif;
+    min-height: 100vh; padding: 16px; user-select: none; -webkit-user-select: none;
+  }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+  h1 { font-size: 20px; color: var(--amber); white-space: nowrap; }
+  .drinkTabs { display: flex; gap: 6px; }
+  .drinkTabs button {
+    font-size: 18px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--sub); cursor: pointer;
+  }
+  .drinkTabs button.active { background: var(--amber); color: #1a1408; border-color: var(--amber); font-weight: bold; }
+  .bottle { flex: 1; min-width: 200px; }
+  .bottle .label { font-size: 12px; color: var(--sub); display: flex; justify-content: space-between; margin-bottom: 3px; }
+  .bar { height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+  .bar > div { height: 100%; background: var(--amber); border-radius: 5px; transition: width .3s; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .person {
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 18px 16px; cursor: pointer; text-align: center; position: relative;
+    transition: background .1s, transform .05s;
+  }
+  .person:active { background: var(--card-tap); transform: scale(0.97); }
+  .person .name { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
+  .person .count { font-size: 44px; font-weight: bold; color: var(--amber); line-height: 1.1; }
+  .person .unit { font-size: 13px; color: var(--sub); }
+  .person .detail { font-size: 13px; color: var(--sub); margin-top: 6px; }
+  .person .del {
+    position: absolute; top: 8px; right: 10px; color: var(--sub); font-size: 14px;
+    padding: 4px 8px; opacity: .5;
+  }
+  .addCard {
+    border: 2px dashed var(--line); border-radius: 16px; display: flex; align-items: center;
+    justify-content: center; font-size: 17px; color: var(--sub); padding: 18px; cursor: pointer; min-height: 130px;
+  }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .toolbar button {
+    padding: 12px 16px; font-size: 15px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); cursor: pointer;
+  }
+  .toolbar button.warn { color: var(--danger); border-color: var(--danger); }
+
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+  section h2 { font-size: 15px; color: var(--amber); margin-bottom: 10px; }
+  .commentRow { display: flex; gap: 8px; margin-bottom: 10px; }
+  .commentRow input {
+    flex: 1; padding: 12px; font-size: 16px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text);
+  }
+  .commentRow button { padding: 12px 18px; border-radius: 8px; border: none; background: var(--amber); color: #1a1408; font-weight: bold; font-size: 15px; cursor: pointer; }
+  .log { list-style: none; font-size: 14px; color: var(--sub); max-height: 180px; overflow-y: auto; }
+  .log li { padding: 5px 0; border-bottom: 1px solid var(--line); }
+  .log li b { color: var(--text); }
+  .historyItem { padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; }
+  .historyItem .sum { font-size: 13px; color: var(--sub); margin-top: 3px; }
+  .hidden { display: none; }
+  .pop {
+    position: fixed; pointer-events: none; font-size: 26px; font-weight: bold; color: var(--amber);
+    animation: rise .7s ease-out forwards; z-index: 99;
+  }
+  @keyframes rise { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-50px); } }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🥃 プッシュカウンター</h1>
+  <div class="drinkTabs" id="drinkTabs"></div>
+  <div class="bottle" id="bottleWrap">
+    <div class="label"><span>ニッカ 2.7L 残量</span><span id="bottleText"></span></div>
+    <div class="bar"><div id="bottleBar"></div></div>
+  </div>
+</header>
+
+<div class="grid" id="grid"></div>
+
+<div class="toolbar">
+  <button onclick="undo()">↩︎ 1つ戻す</button>
+  <button onclick="toggle('commentSec')">💬 コメント</button>
+  <button onclick="toggle('historySec'); renderHistory()">📜 過去の会</button>
+  <button onclick="exportJSON()">⬇️ JSON保存</button>
+  <button onclick="importJSON()">⬆️ 読み込み</button>
+  <button class="warn" onclick="endSession()">🏁 今日の会を締める</button>
+</div>
+
+<section id="commentSec" class="hidden">
+  <h2>💬 今日のコメント</h2>
+  <div class="commentRow">
+    <input id="commentInput" placeholder="例：田中、ペース早すぎ笑">
+    <button onclick="addComment()">追加</button>
+  </div>
+  <ul class="log" id="commentLog"></ul>
+</section>
+
+<section id="historySec" class="hidden">
+  <h2>📜 過去の会</h2>
+  <div id="historyList"></div>
+</section>
+
+<section>
+  <h2>📋 今日のログ</h2>
+  <ul class="log" id="eventLog"></ul>
+</section>
+
+<input type="file" id="fileInput" accept=".json" class="hidden">
+
+<script>
+const DRINKS = {
+  whisky: { icon: '🥃', label: 'ウイスキー', mlPerTap: 8,   tapName: 'プッシュ', cupMl: 30,  cupName: 'シングル', bottleMl: 2700 },
+  wine:   { icon: '🍷', label: 'ワイン',     mlPerTap: 125, tapName: '杯',       cupMl: 125, cupName: '杯',       bottleMl: null },
+  beer:   { icon: '🍺', label: 'ビール',     mlPerTap: 350, tapName: '杯',       cupMl: 350, cupName: '杯',       bottleMl: null },
+};
+const KEY = 'nomikai-counter-v1';
+let store = load();
+let currentDrink = 'whisky';
+
+function load() {
+  try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.current) return s; } catch (e) { /* storage不可環境でも動かす */ }
+  return { current: newSession(), history: [] };
+}
+function newSession() {
+  return { date: new Date().toISOString(), people: [], events: [], comments: [] };
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
+const S = () => store.current;
+const fmtTime = t => new Date(t).toTimeString().slice(0, 5);
+
+// ---- タップ（1プッシュ） ----
+function tap(name, ev) {
+  S().events.push({ t: Date.now(), person: name, drink: currentDrink });
+  save(); render();
+  if (ev) {
+    const p = document.createElement('div');
+    p.className = 'pop'; p.textContent = '+1';
+    p.style.left = ev.clientX + 'px'; p.style.top = (ev.clientY - 30) + 'px';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 700);
+  }
+}
+function undo() {
+  const e = S().events.pop();
+  if (!e) return;
+  save(); render();
+}
+
+// ---- 参加者 ----
+function addPerson() {
+  const name = (prompt('名前は？') || '').trim();
+  if (!name) return;
+  if (S().people.includes(name)) { alert('同じ名前がいます'); return; }
+  S().people.push(name); save(); render();
+}
+function removePerson(name, ev) {
+  ev.stopPropagation();
+  if (!confirm(name + ' を外す？（記録は残ります）')) return;
+  S().people = S().people.filter(p => p !== name); save(); render();
+}
+
+// ---- コメント ----
+function addComment() {
+  const el = document.getElementById('commentInput');
+  const text = el.value.trim();
+  if (!text) return;
+  S().comments.push({ t: Date.now(), text });
+  el.value = ''; save(); render();
+}
+
+// ---- 集計 ----
+function statsFor(session, name) {
+  const out = {};
+  for (const [k, d] of Object.entries(DRINKS)) {
+    const n = session.events.filter(e => e.person === name && e.drink === k).length;
+    if (n) out[k] = { taps: n, ml: n * d.mlPerTap, cups: (n * d.mlPerTap / d.cupMl) };
+  }
+  return out;
+}
+function whiskyUsedMl(session) {
+  return session.events.filter(e => e.drink === 'whisky').length * DRINKS.whisky.mlPerTap;
+}
+
+// ---- 会の終了・履歴 ----
+function endSession() {
+  if (!S().events.length && !S().comments.length) { alert('まだ記録がありません'); return; }
+  if (!confirm('今日の会を締めて履歴に保存する？')) return;
+  store.history.unshift(S());
+  const people = S().people;
+  store.current = newSession();
+  store.current.people = people; // メンバーは引き継ぐ
+  save(); render();
+  alert('保存しました。新しい会を開始！');
+}
+function sessionSummary(s) {
+  return s.people.map(name => {
+    const st = statsFor(s, name);
+    const parts = Object.entries(st).map(([k, v]) => `${DRINKS[k].icon}${v.taps}`);
+    return parts.length ? `${name}: ${parts.join(' ')}` : null;
+  }).filter(Boolean).join('　');
+}
+
+// ---- JSON入出力 ----
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(store, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'nomikai-' + new Date().toISOString().slice(0, 10) + '.json';
+  a.click();
+}
+function importJSON() {
+  const input = document.getElementById('fileInput');
+  input.onchange = () => {
+    const f = input.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => {
+      try {
+        const data = JSON.parse(r.result);
+        if (!data.current) throw new Error();
+        if (!confirm('今のデータを読み込んだ内容で置き換える？')) return;
+        store = data; save(); render();
+      } catch (e) { alert('JSONが読めませんでした'); }
+    };
+    r.readAsText(f);
+  };
+  input.click();
+}
+
+// ---- 表示 ----
+function toggle(id) { document.getElementById(id).classList.toggle('hidden'); }
+
+function render() {
+  // ドリンクタブ
+  document.getElementById('drinkTabs').innerHTML = Object.entries(DRINKS).map(([k, d]) =>
+    `<button class="${k === currentDrink ? 'active' : ''}" onclick="currentDrink='${k}';render()">${d.icon} ${d.label}</button>`
+  ).join('');
+
+  // ボトル残量（ウイスキーのみ）
+  const wrap = document.getElementById('bottleWrap');
+  const used = whiskyUsedMl(S());
+  const remain = Math.max(0, DRINKS.whisky.bottleMl - used);
+  document.getElementById('bottleText').textContent = `${(remain / 1000).toFixed(2)}L / 2.7L`;
+  document.getElementById('bottleBar').style.width = (remain / DRINKS.whisky.bottleMl * 100) + '%';
+  wrap.style.display = 'block';
+
+  // 参加者カード
+  const d = DRINKS[currentDrink];
+  const grid = document.getElementById('grid');
+  grid.innerHTML = S().people.map(name => {
+    const st = statsFor(S(), name);
+    const cur = st[currentDrink] || { taps: 0, ml: 0, cups: 0 };
+    const others = Object.entries(st).filter(([k]) => k !== currentDrink)
+      .map(([k, v]) => `${DRINKS[k].icon}${v.taps}`).join(' ');
+    return `<div class="person" onclick="tap('${name.replace(/'/g, "\\'")}', event)">
+      <div class="del" onclick="removePerson('${name.replace(/'/g, "\\'")}', event)">✕</div>
+      <div class="name">${name}</div>
+      <div class="count">${cur.taps}</div>
+      <div class="unit">${d.tapName}（${d.icon} 約${cur.ml}ml ≒ ${cur.cups.toFixed(1)}${d.cupName}）</div>
+      <div class="detail">${others || '&nbsp;'}</div>
+    </div>`;
+  }).join('') + `<div class="addCard" onclick="addPerson()">＋ 参加者を追加</div>`;
+
+  // イベントログ
+  document.getElementById('eventLog').innerHTML = S().events.slice(-30).reverse().map(e =>
+    `<li>${fmtTime(e.t)} <b>${e.person}</b> ${DRINKS[e.drink].icon} +1</li>`
+  ).join('') || '<li>まだ記録なし。カードをタップ！</li>';
+
+  // コメントログ
+  document.getElementById('commentLog').innerHTML = S().comments.slice().reverse().map(c =>
+    `<li>${fmtTime(c.t)} ${c.text}</li>`
+  ).join('') || '<li>コメントなし</li>';
+}
+
+function renderHistory() {
+  const el = document.getElementById('historyList');
+  el.innerHTML = store.history.map((s, i) => {
+    const date = new Date(s.date).toLocaleDateString('ja-JP');
+    const n = s.events.length;
+    const cm = s.comments.map(c => `「${c.text}」`).join(' ');
+    return `<div class="historyItem">
+      <b>${date}</b>（${s.people.length}人・${n}タップ）
+      <div class="sum">${sessionSummary(s)}</div>
+      ${cm ? `<div class="sum">💬 ${cm}</div>` : ''}
+    </div>`;
+  }).join('') || '<div class="sum" style="color:var(--sub);font-size:14px">まだ履歴なし</div>';
+}
+
+render();
+</script>
+</body>
+</html>
