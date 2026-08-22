@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>ニッカ・プッシュカウンター</title>
+<title>GG プッシュカウンター</title>
 <style>
   :root {
     --bg: #14100c;
@@ -47,6 +47,12 @@
   .person .unit { font-size: 13px; color: var(--sub); }
   .person .detail { font-size: 13px; color: var(--sub); margin-top: 6px; }
   .person .glasses { margin-top: 8px; font-size: 21px; line-height: 1.35; word-break: break-all; min-height: 28px; }
+  .person .kcal { margin-top: 4px; font-size: 13px; color: var(--amber); }
+  .person .alc { margin-top: 8px; font-size: 13px; }
+  .alc.t1 { color: var(--sub); }
+  .alc.t2 { color: var(--amber); }
+  .alc.t3 { color: #e0762e; font-weight: bold; }
+  .alc.t4 { color: var(--danger); font-weight: bold; }
   .person .del {
     position: absolute; top: 8px; right: 10px; color: var(--sub); font-size: 14px;
     padding: 4px 8px; opacity: .5;
@@ -91,7 +97,7 @@
 <body>
 
 <header>
-  <h1>🥃 プッシュカウンター</h1>
+  <h1>🥃 GG プッシュカウンター</h1>
   <div class="drinkTabs" id="drinkTabs"></div>
   <div class="bottle" id="bottleWrap">
     <div class="label"><span>ニッカ 2.7L 残量</span><span id="bottleText"></span></div>
@@ -117,6 +123,13 @@
   <div class="setRow">🍷 1杯 <input type="number" id="set_wine" onchange="setMaster('wine', this.value)"> ml</div>
   <div class="setRow">🍺 1杯 <input type="number" id="set_beer" onchange="setMaster('beer', this.value)"> ml</div>
   <div class="setRow">🥃 ボトル容量 <input type="number" id="set_bottle" onchange="setMaster('bottle', this.value)"> ml</div>
+  <div class="setRow">🥃 カロリー <input type="number" id="set_kcal100_whisky" onchange="setMaster('kcal100_whisky', this.value)"> kcal/100ml</div>
+  <div class="setRow">🍷 カロリー <input type="number" id="set_kcal100_wine" onchange="setMaster('kcal100_wine', this.value)"> kcal/100ml</div>
+  <div class="setRow">🍺 カロリー <input type="number" id="set_kcal100_beer" onchange="setMaster('kcal100_beer', this.value)"> kcal/100ml</div>
+  <div class="setRow">🎾 テニス1回の消費 <input type="number" id="set_tennisKcal" onchange="setMaster('tennisKcal', this.value)"> kcal</div>
+  <div class="setRow">🥃 度数 <input type="number" step="0.5" id="set_abv_whisky" onchange="setMaster('abv_whisky', this.value)"> %</div>
+  <div class="setRow">🍷 度数 <input type="number" step="0.5" id="set_abv_wine" onchange="setMaster('abv_wine', this.value)"> %</div>
+  <div class="setRow">🍺 度数 <input type="number" step="0.5" id="set_abv_beer" onchange="setMaster('abv_beer', this.value)"> %</div>
 </section>
 
 <section id="commentSec" class="hidden">
@@ -147,7 +160,13 @@ const DRINKS = {
   beer:   { icon: '🍺', label: 'ビール',     tapName: '杯',       cupMl: null, cupName: '杯' },
 };
 // マスタ設定（⚙️設定から変更可・localStorageに保存される）
-const DEFAULT_SETTINGS = { whisky: 25, wine: 175, beer: 350, bottle: 2700 };
+const DEFAULT_SETTINGS = {
+  whisky: 25, wine: 175, beer: 350, bottle: 2700,
+  // カロリー係数（kcal/100ml）とテニス1回（2hダブルス想定）の消費kcal
+  kcal100_whisky: 237, kcal100_wine: 83, kcal100_beer: 42, tennisKcal: 600,
+  // アルコール度数（%）。純アルコールg = ml × 度数/100 × 0.8
+  abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, // ブラックニッカ クリア=37%
+};
 const getMl = k => (store.settings && store.settings[k]) || DEFAULT_SETTINGS[k];
 const cupMlOf = k => DRINKS[k].cupMl || getMl(k);
 const KEY = 'nomikai-counter-v1';
@@ -324,12 +343,12 @@ function importJSON() {
 
 // ---- マスタ設定 ----
 function setMaster(k, v) {
-  const n = parseInt(v, 10);
+  const n = parseFloat(v);
   if (!n || n <= 0) { render(); return; }
   store.settings[k] = n; save(); render();
 }
 function renderSettings() {
-  for (const k of ['whisky', 'wine', 'beer', 'bottle']) {
+  for (const k of Object.keys(DEFAULT_SETTINGS)) {
     const el = document.getElementById('set_' + k);
     if (el && document.activeElement !== el) el.value = getMl(k);
   }
@@ -363,12 +382,22 @@ function render() {
     const glasses = Object.entries(st).map(([k, v]) =>
       `<div>${v.taps <= 12 ? DRINKS[k].icon.repeat(v.taps) : DRINKS[k].icon.repeat(12) + `+${v.taps - 12}`}</div>`
     ).join('');
+    const kcal = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('kcal100_' + k) / 100, 0));
+    const tennis = (kcal / getMl('tennisKcal')).toFixed(1);
+    const totalMl = Object.values(st).reduce((a, v) => a + v.ml, 0);
+    const alcG = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('abv_' + k) / 100 * 0.8, 0));
+    let tier = 't1', mood = '😀 いい感じ';
+    if (alcG >= 60) { tier = 't4'; mood = '☠️ 明日ヤバい…'; }
+    else if (alcG >= 40) { tier = 't3'; mood = '😵 飲みすぎ！'; }
+    else if (alcG >= 20) { tier = 't2'; mood = '🥴 酔ってきた'; }
     return `<div class="person" onclick="tap('${name.replace(/'/g, "\\'")}', event)">
       <div class="del" onclick="removePerson('${name.replace(/'/g, "\\'")}', event)">✕</div>
       <div class="name">${name}</div>
       <div class="count">${cur.taps}</div>
       <div class="unit">${d.tapName}（${d.icon} 約${cur.ml}ml ≒ ${cur.cups.toFixed(1)}${d.cupName}）</div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
+      <div class="alc ${tier}">🍶 計${totalMl}ml・純アル ${alcG}g　${mood}</div>
+      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 テニス${tennis}回分</div>
     </div>`;
   }).join('') + `<div class="addCard" onclick="addPerson()">＋ 参加者を追加</div>`;
 
