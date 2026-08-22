@@ -117,6 +117,28 @@
   .historyItem { padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; }
   .historyItem .sum { font-size: 13px; color: var(--sub); margin-top: 3px; }
   .hidden { display: none; }
+  @keyframes pulseWarn {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(224, 118, 46, 0); }
+    50% { box-shadow: 0 0 16px 3px rgba(224, 118, 46, .7); border-color: #e0762e; }
+  }
+  .person.warn3 { animation: pulseWarn 1.6s infinite; }
+  @keyframes pulseDanger {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192, 80, 64, 0); }
+    50% { box-shadow: 0 0 22px 6px rgba(192, 80, 64, .9); border-color: var(--danger); }
+  }
+  .person.warn4 { animation: pulseDanger 0.9s infinite; }
+  .toast {
+    position: fixed; top: 14px; left: 50%; transform: translateX(-50%);
+    background: #e0762e; color: #fff; font-weight: bold; font-size: 16px;
+    padding: 12px 22px; border-radius: 12px; z-index: 100; white-space: nowrap;
+    animation: toastIn 3.5s forwards;
+  }
+  .toast.t4toast { background: var(--danger); }
+  @keyframes toastIn {
+    0% { opacity: 0; transform: translate(-50%, -20px); }
+    10%, 80% { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; }
+  }
   .pop {
     position: fixed; pointer-events: none; font-size: 26px; font-weight: bold; color: var(--amber);
     animation: rise .7s ease-out forwards; z-index: 99;
@@ -292,9 +314,13 @@ function playSound(kind) {
 
 // ---- タップ（1杯）／長押し（半杯） ----
 function tap(name, ev, amt = 1) {
+  const gBefore = alcGFor(name);
   playSound(currentDrink);
   S().events.push({ t: Date.now(), person: name, drink: currentDrink, amt });
   save(); render();
+  const gAfter = alcGFor(name);
+  if (gBefore < 60 && gAfter >= 60) alertWarn(name, 4);
+  else if (gBefore < 40 && gAfter >= 40) alertWarn(name, 3);
   if (ev) {
     const p = document.createElement('div');
     p.className = 'pop'; p.textContent = amt === 0.5 ? '+½' : '+1';
@@ -303,6 +329,27 @@ function tap(name, ev, amt = 1) {
     setTimeout(() => p.remove(), 700);
   }
 }
+// 飲みすぎ警報：しきい値を超えた瞬間にピコンピコン＋トースト
+function alertWarn(name, lvl) {
+  try {
+    const n = lvl === 4 ? 6 : 3, f = lvl === 4 ? 988 : 880;
+    for (let i = 0; i < n; i++) {
+      const o = AC.createOscillator(), g = AC.createGain();
+      const ts = AC.currentTime + 0.35 + i * (lvl === 4 ? 0.16 : 0.25);
+      o.type = 'square'; o.frequency.setValueAtTime(i % 2 ? f * 0.75 : f, ts);
+      g.gain.setValueAtTime(0.0001, ts);
+      g.gain.linearRampToValueAtTime(0.22, ts + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ts + 0.15);
+      o.connect(g); g.connect(AC.destination); o.start(ts); o.stop(ts + 0.16);
+    }
+  } catch (e) {}
+  const t = document.createElement('div');
+  t.className = 'toast' + (lvl === 4 ? ' t4toast' : '');
+  t.textContent = lvl === 4 ? `☠️ ${name} 危険水域！！水を飲ませろ！` : `⚠️ ピコンピコン！ ${name} 飲みすぎ警報！`;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
 let pressTimer = null, longPressed = false;
 function pressStart(name, ev) {
   if (ev.target.classList.contains('del')) return;
@@ -502,7 +549,7 @@ function render() {
       mood += `　🕐${tomorrow ? '明日' : ''}${end.getHours()}時に抜ける`;
     }
     const esc = name.replace(/'/g, "\\'");
-    return `<div class="person" onclick="cardClick('${esc}', event)"
+    return `<div class="person ${tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : ''}" onclick="cardClick('${esc}', event)"
       onpointerdown="pressStart('${esc}', event)" onpointerup="pressEnd()" onpointerleave="pressEnd()">
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
       <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${name}</div>
