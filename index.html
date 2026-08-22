@@ -54,6 +54,15 @@
   }
   .ranking:empty { display: none; }
   .rankHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 15px; color: var(--amber); font-weight: bold; }
+  .trash {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 10px 16px; margin-bottom: 14px; font-size: 15px;
+    display: flex; gap: 14px; flex-wrap: wrap; align-items: center;
+  }
+  .trash:empty { display: none; }
+  .trash .tTitle { color: var(--amber); font-weight: bold; font-size: 14px; }
+  .trash .pile { font-size: 21px; word-break: break-all; }
+  .trash .tN { color: var(--sub); font-size: 13px; margin-left: -8px; }
   .rankRow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
   .rMedal { width: 34px; text-align: center; }
   .rName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32%; }
@@ -151,6 +160,44 @@
     60% { transform: scale(1); }
     100% { opacity: 0; }
   }
+  .cut { position: fixed; inset: 0; z-index: 95; pointer-events: none; background: radial-gradient(circle, rgba(0,0,0,0) 40%, rgba(0,0,0,.5)); animation: cutFade 1.4s forwards; }
+  @keyframes cutFade { 0% { opacity: 0; } 10%, 80% { opacity: 1; } 100% { opacity: 0; } }
+  .cutBall { position: absolute; top: 28%; left: -10%; font-size: 72px; animation: ballFly 1.1s ease-in forwards; }
+  @keyframes ballFly {
+    0% { left: -10%; transform: translateY(0) rotate(0); }
+    50% { transform: translateY(-90px) rotate(360deg); }
+    100% { left: 105%; transform: translateY(12px) rotate(900deg); }
+  }
+  .cutText {
+    position: absolute; top: 44%; left: 50%; font-size: min(64px, 9vw); font-weight: 900; font-style: italic;
+    color: #fff; text-shadow: 0 0 26px var(--amber), 0 4px 0 #7a5510; white-space: nowrap;
+    animation: slam 1.4s cubic-bezier(.2, 1.4, .4, 1) forwards;
+  }
+  @keyframes slam {
+    0% { transform: translate(-50%, -50%) scale(3) rotate(-6deg); opacity: 0; }
+    18% { transform: translate(-50%, -50%) scale(1) rotate(-3deg); opacity: 1; }
+    80% { transform: translate(-50%, -50%) scale(1) rotate(-3deg); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1.08) rotate(-3deg); opacity: 0; }
+  }
+  .cutIcon { position: absolute; top: 66%; left: 50%; transform: translateX(-50%); font-size: 96px; animation: crackerPop 1.4s ease-out forwards; }
+  .hype {
+    position: fixed; z-index: 97; font-weight: 900; font-size: 38px; color: var(--amber);
+    text-shadow: 0 2px 12px rgba(0,0,0,.6); pointer-events: none; white-space: nowrap;
+    animation: hypePop 1.1s ease-out forwards;
+  }
+  @keyframes hypePop {
+    0% { transform: scale(.3) rotate(var(--rot)); opacity: 0; }
+    25% { transform: scale(1.25) rotate(var(--rot)); opacity: 1; }
+    70% { transform: scale(1) rotate(var(--rot)); }
+    100% { transform: scale(1) rotate(var(--rot)) translateY(-34px); opacity: 0; }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translate(0); }
+    25% { transform: translate(3px, -2px); }
+    50% { transform: translate(-3px, 2px); }
+    75% { transform: translate(2px, 1px); }
+  }
+  body.shake { animation: shake .18s; }
   .spark { position: fixed; font-size: 20px; z-index: 97; pointer-events: none; animation: sparkFly .8s ease-out forwards; }
   @keyframes sparkFly { to { transform: translate(var(--dx), var(--dy)) scale(0.4); opacity: 0; } }
   .gulp { position: fixed; font-size: 46px; z-index: 98; pointer-events: none; animation: gulp 1s ease-in-out forwards; }
@@ -199,65 +246,54 @@
 <body>
 
 <header>
-  <h1>🍻 GG グビロワイヤル</h1>
+  <h1 id="appTitle">🍻 GG グビロワイヤル</h1>
+  <button class="eqToggle" id="langBtn" onclick="toggleLang()">EN</button>
   <div class="drinkTabs" id="drinkTabs"></div>
   <div class="bottle" id="bottleWrap">
-    <div class="label"><span>ニッカ 2.7L 残量</span><span id="bottleText"></span></div>
+    <div class="label"><span id="bottleLabel">ニッカ残量</span><span id="bottleText"></span></div>
     <div class="bar"><div id="bottleBar"></div></div>
   </div>
 </header>
 
 <div class="ranking" id="ranking"></div>
 
+<div class="trash" id="trash"></div>
+
 <div class="grid" id="grid"></div>
 
-<div class="hint">💡 タップ＝1杯　長押し（0.5秒）＝半杯½</div>
+<div class="hint" id="hintBar">💡 タップ＝1杯　長押し（0.5秒）＝半杯½</div>
 
 <div class="toolbar">
-  <button onclick="undo()">↩︎ 1つ戻す</button>
-  <button onclick="SFX.click();toggle('commentSec')">💬 コメント</button>
-  <button onclick="SFX.click();toggle('historySec'); renderHistory()">📜 過去の会</button>
-  <button onclick="SFX.click();exportJSON()">⬇️ JSON保存</button>
-  <button onclick="SFX.click();importJSON()">⬆️ 読み込み</button>
-  <button onclick="SFX.click();toggle('settingsSec')">⚙️ 設定</button>
-  <button class="warn" onclick="endSession()">🏁 今日の会を締める</button>
+  <button id="btnUndo" onclick="undo()">↩︎ 1つ戻す</button>
+  <button id="btnComment" onclick="SFX.click();toggle('commentSec')">💬 コメント</button>
+  <button id="btnHistory" onclick="SFX.click();toggle('historySec'); renderHistory()">📜 過去の会</button>
+  <button id="btnExport" onclick="SFX.click();exportJSON()">⬇️ JSON保存</button>
+  <button id="btnImport" onclick="SFX.click();importJSON()">⬆️ 読み込み</button>
+  <button id="btnSettings" onclick="SFX.click();toggle('settingsSec')">⚙️ 設定</button>
+  <button class="warn" id="btnEnd" onclick="endSession()">🏁 今日の会を締める</button>
 </div>
 
 <section id="settingsSec" class="hidden">
-  <h2>⚙️ マスタ設定（1タップあたりの量・後から変更OK）</h2>
-  <div class="setRow">🥃 1プッシュ <input type="number" id="set_whisky" onchange="setMaster('whisky', this.value)"> ml</div>
-  <div class="setRow">🍷 1杯 <input type="number" id="set_wine" onchange="setMaster('wine', this.value)"> ml</div>
-  <div class="setRow">🍺 1杯 <input type="number" id="set_beer" onchange="setMaster('beer', this.value)"> ml</div>
-  <div class="setRow">🍹 1杯 <input type="number" id="set_cocktail" onchange="setMaster('cocktail', this.value)"> ml</div>
-  <div class="setRow">💧 1杯 <input type="number" id="set_water" onchange="setMaster('water', this.value)"> ml</div>
-  <div class="setRow">🥃 ボトル容量 <input type="number" id="set_bottle" onchange="setMaster('bottle', this.value)"> ml</div>
-  <div class="setRow">🥃 カロリー <input type="number" id="set_kcal100_whisky" onchange="setMaster('kcal100_whisky', this.value)"> kcal/100ml</div>
-  <div class="setRow">🍷 カロリー <input type="number" id="set_kcal100_wine" onchange="setMaster('kcal100_wine', this.value)"> kcal/100ml</div>
-  <div class="setRow">🍺 カロリー <input type="number" id="set_kcal100_beer" onchange="setMaster('kcal100_beer', this.value)"> kcal/100ml</div>
-  <div class="setRow">🍹 カロリー <input type="number" id="set_kcal100_cocktail" onchange="setMaster('kcal100_cocktail', this.value)"> kcal/100ml</div>
-  <div class="setRow">🎾 1ラウンド(20分)の消費 <input type="number" id="set_tennisRoundKcal" onchange="setMaster('tennisRoundKcal', this.value)"> kcal</div>
-  <div class="setRow">🥃 度数 <input type="number" step="0.5" id="set_abv_whisky" onchange="setMaster('abv_whisky', this.value)"> %</div>
-  <div class="setRow">🍷 度数 <input type="number" step="0.5" id="set_abv_wine" onchange="setMaster('abv_wine', this.value)"> %</div>
-  <div class="setRow">🍺 度数 <input type="number" step="0.5" id="set_abv_beer" onchange="setMaster('abv_beer', this.value)"> %</div>
-  <div class="setRow">🍹 度数 <input type="number" step="0.5" id="set_abv_cocktail" onchange="setMaster('abv_cocktail', this.value)"> %（カンパリ⅓=12・アペロール⅓=7目安）</div>
+  <h2 id="settingsTitle">⚙️ マスタ設定（後から変更OK）</h2>
+  <div id="settingsRows"></div>
 </section>
 
 <section id="commentSec" class="hidden">
-  <h2>💬 今日のコメント</h2>
+  <h2 id="commentTitle">💬 今日のコメント</h2>
   <div class="commentRow">
     <input id="commentInput" placeholder="例：田中、ペース早すぎ笑">
-    <button onclick="addComment()">追加</button>
+    <button id="btnAddComment" onclick="addComment()">追加</button>
   </div>
   <ul class="log" id="commentLog"></ul>
 </section>
 
 <section id="historySec" class="hidden">
-  <h2>📜 過去の会</h2>
+  <h2 id="historyTitle">📜 過去の会</h2>
   <div id="historyList"></div>
 </section>
 
 <section>
-  <h2>📋 今日のログ</h2>
+  <h2 id="logTitle">📋 今日のログ</h2>
   <ul class="log" id="eventLog"></ul>
 </section>
 
@@ -265,12 +301,106 @@
 
 <script>
 const DRINKS = {
-  whisky: { icon: '🥃', label: 'ウイスキー', tapName: 'プッシュ', cupMl: 30,   cupName: 'シングル' },
-  wine:   { icon: '🍷', label: 'ワイン',     tapName: '杯',       cupMl: null, cupName: '杯' },
-  beer:   { icon: '🍺', label: 'ビール',     tapName: '杯',       cupMl: null, cupName: '杯' },
-  cocktail: { icon: '🍹', label: 'カクテル', tapName: '杯',       cupMl: null, cupName: '杯' },
-  water:    { icon: '💧', label: 'チェイサー', tapName: '杯',     cupMl: null, cupName: '杯' },
+  whisky: { icon: '🥃', label: 'ウイスキー', en: 'Whisky',   cupMl: 30 },
+  wine:   { icon: '🍷', label: 'ワイン',     en: 'Wine',     cupMl: null },
+  beer:   { icon: '🍺', label: 'ビール',     en: 'Beer',     cupMl: null },
+  cocktail: { icon: '🍹', label: 'カクテル', en: 'Cocktail', cupMl: null },
+  water:    { icon: '💧', label: 'チェイサー', en: 'Chaser',  cupMl: null },
 };
+// ---- 日英辞書 ----
+const lang = () => (store.settings && store.settings.lang) || 'ja';
+const L = {
+  appTitle: { ja: '🍻 GG グビロワイヤル', en: '🍻 GG Gubi Royale' },
+  bottleLabel: { ja: 'ニッカ残量', en: 'Nikka left' },
+  hintBar: { ja: '💡 タップ＝1杯　長押し（0.5秒）＝半杯½', en: '💡 Tap = 1 drink / long-press (0.5s) = half ½' },
+  btnUndo: { ja: '↩︎ 1つ戻す', en: '↩︎ Undo' },
+  btnComment: { ja: '💬 コメント', en: '💬 Comments' },
+  btnHistory: { ja: '📜 過去の会', en: '📜 History' },
+  btnExport: { ja: '⬇️ JSON保存', en: '⬇️ Save JSON' },
+  btnImport: { ja: '⬆️ 読み込み', en: '⬆️ Load' },
+  btnSettings: { ja: '⚙️ 設定', en: '⚙️ Settings' },
+  btnEnd: { ja: '🏁 今日の会を締める', en: '🏁 End session' },
+  commentTitle: { ja: '💬 今日のコメント', en: '💬 Tonight\'s comments' },
+  btnAddComment: { ja: '追加', en: 'Add' },
+  commentPh: { ja: '例：田中、ペース早すぎ笑', en: 'e.g. Tanaka is way too fast lol' },
+  historyTitle: { ja: '📜 過去の会', en: '📜 Past sessions' },
+  logTitle: { ja: '📋 今日のログ', en: '📋 Tonight\'s log' },
+  settingsTitle: { ja: '⚙️ マスタ設定（後から変更OK）', en: '⚙️ Settings (editable anytime)' },
+  rankTitle: { ja: '🏆 本日の酔王ランキング', en: '🏆 Tonight\'s Drink Kings' },
+  addCard: { ja: '＋ 参加者を追加', en: '+ Add player' },
+  cupsUnit: { ja: '杯', en: 'drinks' },
+  noEvents: { ja: 'まだ記録なし。カードをタップ！', en: 'No records yet — tap a card!' },
+  noComments: { ja: 'コメントなし', en: 'No comments' },
+  noHistory: { ja: 'まだ履歴なし', en: 'No history yet' },
+  moods: {
+    ja: ['😀 いい感じ', '🥴 酔ってきた', '😵 飲みすぎ！', '☠️ 明日ヤバい…'],
+    en: ['😀 Feeling good', '🥴 Getting tipsy', '😵 Too much!', '☠️ Tomorrow = pain…'],
+  },
+  hydrated: { ja: '（💧効いてる）', en: ' (💧hydrated!)' },
+  drinkWater: { ja: '　💧水も飲め！', en: ' 💧Drink water!' },
+  namePrompt: { ja: '名前は？', en: 'Name?' },
+  dupName: { ja: '同じ名前がいます', en: 'That name already exists' },
+  noRecords: { ja: 'まだ記録がありません', en: 'Nothing recorded yet' },
+  endConfirm: { ja: '今日の会を締めて履歴に保存する？', en: 'End tonight\'s session and save to history?' },
+  savedNew: { ja: '保存しました。新しい会を開始！', en: 'Saved! New session started.' },
+  importConfirm: { ja: '今のデータを読み込んだ内容で置き換える？', en: 'Replace current data with the loaded file?' },
+  importErr: { ja: 'JSONが読めませんでした', en: 'Could not read that JSON' },
+};
+const T = k => L[k][lang()];
+const Lf = {
+  soberBy: (tomorrow, h) => lang() === 'ja'
+    ? `　🕐${tomorrow ? '明日' : ''}${h}時に抜ける`
+    : ` 🕐 sober by ${h}:00${tomorrow ? ' tomorrow' : ''}`,
+  tennis: r => lang() === 'ja'
+    ? `${r.toFixed(1)}R（約${(r / 6).toFixed(1)}回）分`
+    : `${r.toFixed(1)} rounds (~${(r / 6).toFixed(1)} sessions)`,
+  eqChip: (icon, ml) => lang() === 'ja' ? `${icon}${ml}ml換算 ⇄` : `per ${icon}${ml}ml ⇄`,
+  gN: n => lang() === 'ja' ? `${fmtN(n)}杯` : `×${fmtN(n)}`,
+  champToast: n => lang() === 'ja' ? `👑 首位交代！ ${n} がNo.1！` : `👑 New champion: ${n}!`,
+  milestone: (n, c) => lang() === 'ja' ? `🍻 ${n} ${c}杯目！いいペース！` : `🍻 ${n}: drink #${c}! On fire!`,
+  warn3: n => lang() === 'ja' ? `⚠️ ピコンピコン！ ${n} 飲みすぎ警報！` : `⚠️ ALERT! ${n} is over the limit!`,
+  warn4: n => lang() === 'ja' ? `☠️ ${n} 危険水域！！水を飲ませろ！` : `☠️ ${n} DANGER ZONE!! Get them water!`,
+  removeConfirm: n => lang() === 'ja' ? `${n} を外す？（記録は残ります）` : `Remove ${n}? (records are kept)`,
+  histLine: (p, t) => lang() === 'ja' ? `（${p}人・${t}タップ）` : `(${p} players, ${t} taps)`,
+};
+const SETTING_ROWS = [
+  ['whisky', '🥃', { ja: '1プッシュ', en: 'per push' }, 'ml'],
+  ['wine', '🍷', { ja: '1杯', en: 'per glass' }, 'ml'],
+  ['beer', '🍺', { ja: '1杯', en: 'per glass' }, 'ml'],
+  ['cocktail', '🍹', { ja: '1杯', en: 'per glass' }, 'ml'],
+  ['water', '💧', { ja: '1杯', en: 'per glass' }, 'ml'],
+  ['bottle', '🥃', { ja: 'ボトル容量', en: 'bottle size' }, 'ml'],
+  ['wineBottle', '🍾', { ja: 'ワインボトル容量', en: 'wine bottle size' }, 'ml'],
+  ['kcal100_whisky', '🥃', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
+  ['kcal100_wine', '🍷', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
+  ['kcal100_beer', '🍺', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
+  ['kcal100_cocktail', '🍹', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
+  ['tennisRoundKcal', '🎾', { ja: '1ラウンド(20分)の消費', en: 'kcal per round (20min)' }, 'kcal'],
+  ['abv_whisky', '🥃', { ja: '度数', en: 'ABV' }, '%'],
+  ['abv_wine', '🍷', { ja: '度数', en: 'ABV' }, '%'],
+  ['abv_beer', '🍺', { ja: '度数', en: 'ABV' }, '%'],
+  ['abv_cocktail', '🍹', { ja: '度数', en: 'ABV' }, '%'],
+];
+function buildSettings() {
+  document.getElementById('settingsRows').innerHTML = SETTING_ROWS.map(([k, icon, lbl, unit]) =>
+    `<div class="setRow">${icon} ${lbl[lang()]} <input type="number" step="any" id="set_${k}" onchange="setMaster('${k}', this.value)"> ${unit}</div>`
+  ).join('');
+  renderSettings();
+}
+function applyStatic() {
+  for (const id of ['appTitle', 'bottleLabel', 'hintBar', 'btnUndo', 'btnComment', 'btnHistory',
+    'btnExport', 'btnImport', 'btnSettings', 'btnEnd', 'commentTitle', 'btnAddComment',
+    'historyTitle', 'logTitle', 'settingsTitle']) {
+    document.getElementById(id).textContent = T(id);
+  }
+  document.getElementById('commentInput').placeholder = T('commentPh');
+  document.getElementById('langBtn').textContent = lang() === 'ja' ? 'EN' : '日本語';
+}
+function toggleLang() {
+  store.settings.lang = lang() === 'ja' ? 'en' : 'ja';
+  SFX.tab();
+  save(); applyStatic(); buildSettings(); render(); renderHistory();
+}
 // マスタ設定（⚙️設定から変更可・localStorageに保存される）
 const DEFAULT_SETTINGS = {
   whisky: 25, wine: 175, beer: 350, cocktail: 200, water: 200, bottle: 2700,
@@ -282,6 +412,7 @@ const DEFAULT_SETTINGS = {
   abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, abv_cocktail: 12, // ブラックニッカ クリア=37%
   kcal100_water: 0, abv_water: 0, // チェイサーはノーカン
   burnGh: 5, // 肝臓のアルコール分解速度（g/時）。「🕐◯時に抜ける」の根拠
+  wineBottle: 750, // ゴミ山のワインボトル換算
 };
 const getMl = k => (store.settings && store.settings[k]) || DEFAULT_SETTINGS[k];
 const cupMlOf = k => DRINKS[k].cupMl || getMl(k);
@@ -415,6 +546,56 @@ function confetti(n = 50) {
     setTimeout(() => p.remove(), 1600);
   });
 }
+// 毎タップの超リアクション：テニス実況カットシーン＋煽りテキスト＋画面シェイク
+const HYPE = {
+  ja: {
+    whisky: ['カーッ！', 'しみる〜！', 'ストレートかよ！', 'ニッカ愛！'],
+    wine: ['エレガント！', 'おしゃれ〜！', 'マリアージュ！', 'ボルドー気分！'],
+    beer: ['プハーッ！', 'グビグビ！', 'とりあえず！', '最高かよ！'],
+    cocktail: ['シャレオツ！', 'スプリッツ！', 'チンチン！🥂', 'アペロール〜！'],
+    water: ['えらい！', 'ナイス水分！', '肝臓が喜んでる！', '明日の自分が感謝！'],
+  },
+  en: {
+    whisky: ['Smooth!', 'Neat!?', 'Nikka love!', 'On the rocks!'],
+    wine: ['Elegant!', 'Magnifique!', 'Santé!', 'Bordeaux vibes!'],
+    beer: ['Gulp gulp!', 'Refreshing!', 'First round!', 'So good!'],
+    cocktail: ['Fancy!', 'Spritz time!', 'Cin cin!🥂', 'Aperol hour!'],
+    water: ['Smart move!', 'Hydration!', 'Your liver thanks you!', 'Tomorrow-you approves!'],
+  },
+};
+const HYPE_COMMON = {
+  ja: ['カンパーイ！', 'うぇーい！', 'Cheers!🍻', 'パーティー！', 'いいねいいね！', 'まだまだいける！'],
+  en: ['Cheers!🍻', 'Party time!', 'Let\'s gooo!', 'One more!', 'Wooo!'],
+};
+const CUT_TEXTS = {
+  ja: ['サービスエース！！', 'ナイスボレー！！', 'リターンエース！！', 'ラブゲーム！！', 'デュース！もう一杯！', 'マッチポイント！？', 'グランドスラム級！！'],
+  en: ['SERVICE ACE!!', 'NICE VOLLEY!!', 'RETURN ACE!!', 'LOVE GAME!!', 'DEUCE! ONE MORE!', 'MATCH POINT!?', 'GRAND SLAM!!'],
+};
+SFX.ace = () => toneSeq([[180, 0.05], [880, 0.07], [1320, 0.16]], 'square', 0.18, 0.1);
+function megaReaction(drink) {
+  // テニス実況ムービー：🎾が横切り、実況テキストがスラムイン、下でグラスがボーン
+  const ov = document.createElement('div');
+  ov.className = 'cut';
+  const cutPool = CUT_TEXTS[lang()];
+  ov.innerHTML = `<div class="cutBall">🎾</div>
+    <div class="cutText">${cutPool[Math.floor(Math.random() * cutPool.length)]}</div>
+    <div class="cutIcon">${DRINKS[drink].icon}</div>`;
+  document.body.appendChild(ov);
+  setTimeout(() => ov.remove(), 1400);
+  SFX.ace();
+  // 煽りテキストも追加でランダム出現
+  const pool = (HYPE[lang()][drink] || []).concat(HYPE_COMMON[lang()]);
+  const h = document.createElement('div');
+  h.className = 'hype'; h.textContent = pool[Math.floor(Math.random() * pool.length)];
+  h.style.left = (20 + Math.random() * 45) + 'vw';
+  h.style.top = (60 + Math.random() * 20) + 'vh';
+  h.style.setProperty('--rot', (Math.random() * 24 - 12) + 'deg');
+  document.body.appendChild(h);
+  setTimeout(() => h.remove(), 1150);
+  document.body.classList.remove('shake');
+  void document.body.offsetWidth;
+  document.body.classList.add('shake');
+}
 function sparks(x, y) {
   const em = ['✨', '🍻', '💫', '⭐'];
   for (let i = 0; i < 5; i++) {
@@ -446,7 +627,7 @@ function tap(name, ev, amt = 1) {
   else if (gBefore < 40 && gAfter >= 40) alertWarn(name, 3);
   else if (topAfter[0] && topAfter[0] !== topBefore[0]) {
     SFX.champ(); confetti(50);
-    showToast(`👑 首位交代！ ${topAfter[0]} がNo.1！`, 'goldToast');
+    showToast(Lf.champToast(topAfter[0]), 'goldToast');
   }
   else if (topAfter.join() !== topBefore.join()) { SFX.rank(); confetti(14); }
   // 5杯ごとの節目祝福（チェイサー除く）
@@ -454,7 +635,7 @@ function tap(name, ev, amt = 1) {
   const cupsNow = Object.entries(stNow).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.taps), 0);
   if (currentDrink !== 'water' && cupsNow > 0 && Number.isInteger(cupsNow) && cupsNow % 5 === 0) {
     confetti(20); SFX.add();
-    showToast(`🍻 ${name} ${cupsNow}杯目！いいペース！`, 'goldToast');
+    showToast(Lf.milestone(name, cupsNow), 'goldToast');
   }
   if (ev) {
     const p = document.createElement('div');
@@ -469,6 +650,7 @@ function tap(name, ev, amt = 1) {
     document.body.appendChild(gl);
     setTimeout(() => gl.remove(), 1100);
     sparks(ev.clientX, ev.clientY);
+    megaReaction(currentDrink);
   }
 }
 // 飲みすぎ警報：しきい値を超えた瞬間にピコンピコン＋トースト
@@ -487,7 +669,7 @@ function alertWarn(name, lvl) {
   } catch (e) {}
   const t = document.createElement('div');
   t.className = 'toast' + (lvl === 4 ? ' t4toast' : '');
-  t.textContent = lvl === 4 ? `☠️ ${name} 危険水域！！水を飲ませろ！` : `⚠️ ピコンピコン！ ${name} 飲みすぎ警報！`;
+  t.textContent = lvl === 4 ? Lf.warn4(name) : Lf.warn3(name);
   document.body.appendChild(t);
   setTimeout(() => t.remove(), 3500);
 }
@@ -513,14 +695,14 @@ function undo() {
 
 // ---- 参加者 ----
 function addPerson() {
-  const name = (prompt('名前は？') || '').trim();
+  const name = (prompt(T('namePrompt')) || '').trim();
   if (!name) return;
-  if (S().people.includes(name)) { alert('同じ名前がいます'); return; }
+  if (S().people.includes(name)) { alert(T('dupName')); return; }
   S().people.push(name); SFX.add(); save(); render();
 }
 function removePerson(name, ev) {
   ev.stopPropagation();
-  if (!confirm(name + ' を外す？（記録は残ります）')) return;
+  if (!confirm(Lf.removeConfirm(name))) return;
   S().people = S().people.filter(p => p !== name); save(); render();
 }
 
@@ -546,12 +728,12 @@ function statsFor(session, name) {
 }
 const fmtN = n => Number.isInteger(n) ? n : n.toFixed(1);
 // 純アルgの換算表示。単位はタップで切替（🍺本分⇄🍷杯分⇄🥃プッシュ分）・マスタ連動
-const EQ_UNITS = { beer: ['🍺', '缶分'], wine: ['🍷', '杯分'], whisky: ['🥃', 'プッシュ分'] };
+const EQ_UNITS = { beer: ['🍺', '缶分', ' cans'], wine: ['🍷', '杯分', ' glasses'], whisky: ['🥃', 'プッシュ分', ' pushes'] };
 const eqUnit = () => store.settings.eqUnit || 'beer';
 function eqLabel(g) {
   const u = eqUnit();
   const per = getMl(u) * getMl('abv_' + u) / 100 * 0.8;
-  return `${EQ_UNITS[u][0]}${(g / per).toFixed(1)}${EQ_UNITS[u][1]}`;
+  return `${EQ_UNITS[u][0]}${(g / per).toFixed(1)}${lang() === 'ja' ? EQ_UNITS[u][1] : EQ_UNITS[u][2]}`;
 }
 function cycleEq() {
   const keys = Object.keys(EQ_UNITS);
@@ -570,15 +752,15 @@ function whiskyUsedMl(session) {
 
 // ---- 会の終了・履歴 ----
 function endSession() {
-  if (!S().events.length && !S().comments.length) { alert('まだ記録がありません'); return; }
-  if (!confirm('今日の会を締めて履歴に保存する？')) return;
+  if (!S().events.length && !S().comments.length) { alert(T('noRecords')); return; }
+  if (!confirm(T('endConfirm'))) return;
   store.history.unshift(S());
   const people = S().people;
   store.current = newSession();
   store.current.people = people; // メンバーは引き継ぐ
   SFX.close();
   save(); render();
-  alert('保存しました。新しい会を開始！');
+  alert(T('savedNew'));
 }
 function sessionSummary(s) {
   return s.people.map(name => {
@@ -605,9 +787,9 @@ function importJSON() {
       try {
         const data = JSON.parse(r.result);
         if (!data.current) throw new Error();
-        if (!confirm('今のデータを読み込んだ内容で置き換える？')) return;
-        store = data; save(); render();
-      } catch (e) { alert('JSONが読めませんでした'); }
+        if (!confirm(T('importConfirm'))) return;
+        store = data; save(); applyStatic(); buildSettings(); render();
+      } catch (e) { alert(T('importErr')); }
     };
     r.readAsText(f);
   };
@@ -633,7 +815,7 @@ function toggle(id) { document.getElementById(id).classList.toggle('hidden'); }
 function render() {
   // ドリンクタブ
   document.getElementById('drinkTabs').innerHTML = Object.entries(DRINKS).map(([k, d]) =>
-    `<button class="${k === currentDrink ? 'active' : ''}" onclick="currentDrink='${k}';SFX.tab();render()">${d.icon} ${d.label}</button>`
+    `<button class="${k === currentDrink ? 'active' : ''}" onclick="currentDrink='${k}';SFX.tab();render()">${d.icon} ${lang() === 'en' ? d.en : d.label}</button>`
   ).join('');
 
   // ボトル残量（ウイスキーのみ）
@@ -651,8 +833,8 @@ function render() {
   const ranked = S().people.map(n => ({ n, g: alcGFor(n) }))
     .filter(p => p.g > 0).sort((a, b) => b.g - a.g).slice(0, 3);
   document.getElementById('ranking').innerHTML = ranked.length
-    ? `<div class="rankHead"><span>🏆 本日の酔王ランキング</span>
-         <span class="eqToggle" onclick="cycleEq()">${EQ_UNITS[eqUnit()][0]}${getMl(eqUnit())}ml換算 ⇄</span></div>` +
+    ? `<div class="rankHead"><span>${T('rankTitle')}</span>
+         <span class="eqToggle" onclick="cycleEq()">${Lf.eqChip(EQ_UNITS[eqUnit()][0], getMl(eqUnit()))}</span></div>` +
       ranked.map((p, i) => {
         const pct = Math.max(5, p.g / ranked[0].g * 100);
         return `<div class="rankRow r${i}">
@@ -664,6 +846,23 @@ function render() {
       }).join('')
     : '';
 
+  // 🗑️ ゴミ山（全員合計の空き缶・空きボトル）
+  const sumTaps = k => S().events.filter(e => e.drink === k).reduce((a, e) => a + (e.amt || 1), 0);
+  const pile = (icon, n) => { const w = Math.floor(n); return icon.repeat(Math.min(w, 12)) + (w > 12 ? `+${w - 12}` : ''); };
+  const ja = lang() === 'ja';
+  const beerN = sumTaps('beer');
+  const wineBot = sumTaps('wine') * getMl('wine') / getMl('wineBottle');
+  const cockN = sumTaps('cocktail');
+  const whiskyBot = whiskyUsedMl(S()) / getMl('bottle');
+  const tParts = [];
+  if (beerN) tParts.push(`<span class="pile">${pile('🍺', beerN) || '🍺'}</span><span class="tN">${fmtN(beerN)}${ja ? '缶' : ' cans'}</span>`);
+  if (wineBot > 0) tParts.push(`<span class="pile">${pile('🍾', wineBot) || '🍷'}</span><span class="tN">${wineBot.toFixed(1)}${ja ? '本' : ' bottles'}</span>`);
+  if (cockN) tParts.push(`<span class="pile">${pile('🍹', cockN) || '🍹'}</span><span class="tN">${fmtN(cockN)}${ja ? '杯' : ' glasses'}</span>`);
+  if (whiskyBot > 0) tParts.push(`<span class="pile">🥃</span><span class="tN">${ja ? 'ボトル' : 'bottle'} ${whiskyBot.toFixed(2)}${ja ? '本' : ''}</span>`);
+  document.getElementById('trash').innerHTML = tParts.length
+    ? `<span class="tTitle">${ja ? '🗑️ 本日のゴミ山' : '🗑️ Tonight\'s trash pile'}</span>` + tParts.join('')
+    : '';
+
   // 参加者カード
   const d = DRINKS[currentDrink];
   const grid = document.getElementById('grid');
@@ -673,11 +872,11 @@ function render() {
     const glasses = Object.entries(st).map(([k, v]) => {
       const whole = Math.floor(v.taps), half = v.taps % 1 >= 0.25;
       const icons = DRINKS[k].icon.repeat(Math.min(whole, 12)) + (whole > 12 ? '…' : '') + (half ? '<span class="half">½</span>' : '');
-      return `<div>${icons}<span class="gN"> ${fmtN(v.taps)}杯</span></div>`;
+      return `<div>${icons}<span class="gN"> ${Lf.gN(v.taps)}</span></div>`;
     }).join('');
     const kcal = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('kcal100_' + k) / 100, 0));
     const rounds = kcal / getMl('tennisRoundKcal');
-    const tennis = `${rounds.toFixed(1)}R（約${(rounds / 6).toFixed(1)}回）`;
+    const tennis = Lf.tennis(rounds);
     const waterMl = st.water ? st.water.ml : 0;
     const alcMl = Object.entries(st).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.ml), 0);
     const alcG = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('abv_' + k) / 100 * 0.8, 0));
@@ -685,36 +884,36 @@ function render() {
     const goodChaser = alcMl > 0 && waterMl >= alcMl;
     let ti = alcG >= 60 ? 3 : alcG >= 40 ? 2 : alcG >= 20 ? 1 : 0;
     if (goodChaser && ti > 0) ti--;
-    const TIERS = [['t1', '😀 いい感じ'], ['t2', '🥴 酔ってきた'], ['t3', '😵 飲みすぎ！'], ['t4', '☠️ 明日ヤバい…']];
-    let [tier, mood] = TIERS[ti];
-    if (goodChaser) mood += '（💧効いてる）';
-    else if (alcG >= 40 && waterMl < alcMl * 0.5) mood += '　💧水も飲め！';
+    const tier = ['t1', 't2', 't3', 't4'][ti];
+    let mood = L.moods[lang()][ti];
+    if (goodChaser) mood += T('hydrated');
+    else if (alcG >= 40 && waterMl < alcMl * 0.5) mood += T('drinkWater');
     if (alcG >= 20) {
       const end = new Date(Date.now() + alcG / getMl('burnGh') * 3600e3);
       const tomorrow = end.getDate() !== new Date().getDate();
-      mood += `　🕐${tomorrow ? '明日' : ''}${end.getHours()}時に抜ける`;
+      mood += Lf.soberBy(tomorrow, end.getHours());
     }
     const esc = name.replace(/'/g, "\\'");
     return `<div class="person ${tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : ''}" onclick="cardClick('${esc}', event)"
       onpointerdown="pressStart('${esc}', event)" onpointerup="pressEnd()" onpointerleave="pressEnd()">
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
       <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${name}</div>
-      <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">杯</span></div>
+      <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">${T('cupsUnit')}</span></div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
       <div class="alc ${tier}">🍶 ${Math.round(alcMl)}ml＝${eqLabel(alcG)}・💧${Math.round(waterMl)}ml　${mood}</div>
-      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}分</div>
+      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}</div>
     </div>`;
-  }).join('') + `<div class="addCard" onclick="addPerson()">＋ 参加者を追加</div>`;
+  }).join('') + `<div class="addCard" onclick="addPerson()">${T('addCard')}</div>`;
 
   // イベントログ
   document.getElementById('eventLog').innerHTML = S().events.slice(-30).reverse().map(e =>
     `<li>${fmtTime(e.t)} <b>${e.person}</b> ${DRINKS[e.drink].icon} ${e.amt === 0.5 ? '+½' : '+1'}</li>`
-  ).join('') || '<li>まだ記録なし。カードをタップ！</li>';
+  ).join('') || `<li>${T('noEvents')}</li>`;
 
   // コメントログ
   document.getElementById('commentLog').innerHTML = S().comments.slice().reverse().map(c =>
     `<li>${fmtTime(c.t)} ${c.text}</li>`
-  ).join('') || '<li>コメントなし</li>';
+  ).join('') || `<li>${T('noComments')}</li>`;
 }
 
 function renderHistory() {
@@ -724,13 +923,15 @@ function renderHistory() {
     const n = s.events.length;
     const cm = s.comments.map(c => `「${c.text}」`).join(' ');
     return `<div class="historyItem">
-      <b>${date}</b>（${s.people.length}人・${n}タップ）
+      <b>${date}</b>${Lf.histLine(s.people.length, n)}
       <div class="sum">${sessionSummary(s)}</div>
       ${cm ? `<div class="sum">💬 ${cm}</div>` : ''}
     </div>`;
-  }).join('') || '<div class="sum" style="color:var(--sub);font-size:14px">まだ履歴なし</div>';
+  }).join('') || `<div class="sum" style="color:var(--sub);font-size:14px">${T('noHistory')}</div>`;
 }
 
+applyStatic();
+buildSettings();
 render();
 </script>
 </body>
