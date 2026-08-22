@@ -109,6 +109,11 @@
     border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px;
     font-size: 13px; color: var(--sub); cursor: pointer; background: var(--bg); font-weight: normal;
   }
+  .aquaRank {
+    margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line);
+    font-size: 15px; color: #7ec4e8; font-weight: bold;
+    animation: nameGlow 2s ease-in-out infinite;
+  }
   .person:active { background: var(--card-tap); transform: scale(0.97); }
   .person .name { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
   .person .count { font-size: 44px; font-weight: bold; color: var(--amber); line-height: 1.1; }
@@ -1198,7 +1203,11 @@ function render() {
   const waterRank = S().people.map(n => ({ n, w: (statsFor(S(), n).water || { taps: 0 }).taps }))
     .sort((a, b) => b.w - a.w);
   const aquaHero = waterRank[0] && waterRank[0].w >= 2 ? waterRank[0].n : null;
-  document.getElementById('ranking').innerHTML = ranked.length
+  const wr = waterRank.filter(p => p.w > 0).slice(0, 3);
+  const aquaRow = wr.length
+    ? `<div class="aquaRank">💧 ${lang() === 'ja' ? '水分ヒーロー' : 'Hydration heroes'}：${wr.map((p, i) => `${medals[i]}${p.n} ${fmtN(p.w)}${lang() === 'ja' ? '杯' : ''}`).join('　')}</div>`
+    : '';
+  document.getElementById('ranking').innerHTML = (ranked.length || wr.length)
     ? `<span class="tw" style="top:8px;left:5%">✨</span>
        <span class="tw" style="top:62%;left:2%;animation-delay:.5s">✨</span>
        <span class="tw" style="top:14%;right:4%;animation-delay:.9s">⭐</span>
@@ -1213,7 +1222,7 @@ function render() {
           <div class="rBarWrap"><div class="rBar" style="width:${pct}%"></div></div>
           <span class="rVal">${eqLabel(p.g)}</span>
         </div>`;
-      }).join('')
+      }).join('') + aquaRow
     : '';
 
   // 🗑️ ゴミ山（全員合計の空き缶・空きボトル）
@@ -1260,6 +1269,7 @@ function render() {
     const rounds = kcal / getMl('tennisRoundKcal');
     const tennis = Lf.tennis(rounds);
     const waterMl = st.water ? st.water.ml : 0;
+    const wTaps = st.water ? st.water.taps : 0;
     const alcMl = Object.entries(st).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.ml), 0);
     const alcG = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('abv_' + k) / 100 * 0.8, 0));
     // チェイサーがお酒と同量以上なら判定を1段階マイルドに
@@ -1276,17 +1286,18 @@ function render() {
       mood += Lf.soberBy(tomorrow, end.getHours());
     }
     const esc = name.replace(/'/g, "\\'");
-    const cardCls = tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : (aquaHero === name ? 'aqua' : '');
+    // 飲まない人（純アル0で水あり）は全員ちゃんと青く光る。水最多ヒーローも青
+    const soberBlue = alcG === 0 && wTaps > 0;
+    const cardCls = tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : (soberBlue || aquaHero === name ? 'aqua' : '');
     return `<div class="person ${cardCls}" onclick="cardClick('${esc}', event)"
       onpointerdown="pressStart('${esc}', event)" onpointerup="pressEnd()" onpointerleave="pressEnd()">
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
       <div class="del edit" onclick="renamePerson('${esc}', event)">✎</div>
-      <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${aquaHero === name ? '💧' : ''}${name}</div>
+      <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${aquaHero === name || soberBlue ? '💧' : ''}${name}</div>
       <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">${T('cupsUnit')}</span></div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
       <div class="alc ${tier}">🍶 ${Math.round(alcMl)}ml＝${eqLabel(alcG)}・💧${Math.round(waterMl)}ml　${mood}</div>
       ${(() => {
-        const wTaps = st.water ? st.water.taps : 0;
         if (!wTaps) return '';
         const lv = wTaps >= 6 ? 3 : wTaps >= 3 ? 2 : 1;
         const wt = { ja: ['', '💧いいケア！', '🛡️鉄壁ディフェンス！', '🏆リカバリーの神！'], en: ['', '💧Good care!', '🛡️Iron defense!', '🏆Recovery god!'] }[lang()][lv];
