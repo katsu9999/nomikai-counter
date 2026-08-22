@@ -134,6 +134,19 @@
     padding: 4px 8px; opacity: .5;
   }
   .person .del.edit { right: auto; left: 10px; }
+  .person .bubble {
+    position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+    background: #fff; color: #1a1408; font-size: 13px; font-weight: bold;
+    padding: 6px 12px; border-radius: 14px; white-space: nowrap; max-width: 92%;
+    overflow: hidden; text-overflow: ellipsis; z-index: 5;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, .55); animation: bubblePop .3s;
+  }
+  .person .bubble::after {
+    content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%);
+    border: 6px solid transparent; border-top-color: #fff; border-bottom: 0;
+  }
+  @keyframes bubblePop { from { transform: translateX(-50%) scale(.4); opacity: 0; } }
+  .grid { padding-top: 10px; }
   .person .dRow { display: flex; justify-content: center; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
   /* コンパクト表示（.mini はカード個別に付く）：詳細行を隠して1画面に大人数 */
   .grid.compact { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; }
@@ -1532,7 +1545,12 @@ function render() {
         onclick="dClick('${esc}', event, '${k}')">${DRINKS[k].icon}</button>`
     ).join('');
     const mini = isMini(name);
+    // 💬 最新コメントを吹き出しで（5分間）
+    const lastC = S().comments.filter(c => c.person === name).slice(-1)[0];
+    const bubble = lastC && (Date.now() - lastC.t < 300000)
+      ? `<div class="bubble">💬 ${lastC.text}</div>` : '';
     return `<div class="person ${cardCls}${mini ? ' mini' : ''}"${mini ? ` onclick="expandCard('${esc}', event)"` : ''}>
+      ${bubble}
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
       <div class="del edit" onclick="renamePerson('${esc}', event)">✎</div>
       <div class="del sizeBtn" onclick="toggleCardSize('${esc}', event)">${mini ? '📖' : '🗜️'}</div>
@@ -1568,7 +1586,7 @@ function render() {
 
   // コメントログ
   document.getElementById('commentLog').innerHTML = S().comments.slice().reverse().map(c =>
-    `<li>${fmtTime(c.t)} ${c.text}</li>`
+    `<li>${fmtTime(c.t)} ${c.person ? `<b>${c.person}</b> ` : ''}${c.text}</li>`
   ).join('') || `<li>${T('noComments')}</li>`;
 }
 
@@ -1577,7 +1595,7 @@ function renderHistory() {
   el.innerHTML = store.history.map((s, i) => {
     const date = new Date(s.date).toLocaleDateString('ja-JP');
     const n = s.events.length;
-    const cm = s.comments.map(c => `「${c.text}」`).join(' ');
+    const cm = s.comments.map(c => `「${(c.person ? c.person + ': ' : '') + c.text}」`).join(' ');
     return `<div class="historyItem">
       <b>${date}</b>${Lf.histLine(s.people.length, n)}
       <div class="sum">${sessionSummary(s)}</div>
@@ -1640,7 +1658,7 @@ async function pollRemote() {
         danmaku(`${DRINKS[row.drink].icon} ${person}`);
       } else if (row.kind === 'comment' && body) {
         danmaku(`💬 ${person}: ${body}`, true);
-        S().comments.push({ t: Date.now(), text: `${person}: ${body}` });
+        S().comments.push({ t: Date.now(), person, text: body });
         save(); render();
       }
     }
