@@ -1656,6 +1656,17 @@ async function pollRemote() {
         if (!S().people.includes(person)) S().people.push(person);
         tap(person, { clientX: innerWidth / 2, clientY: innerHeight * 0.35 }, row.amt || 1, row.drink);
         danmaku(`${DRINKS[row.drink].icon} ${person}`);
+      } else if (row.kind === 'undo') {
+        // その人の最後の記録だけ取り消す（他人の分は消せない）
+        for (let i = S().events.length - 1; i >= 0; i--) {
+          if (S().events[i].person === person) {
+            S().events.splice(i, 1);
+            SFX.undo();
+            danmaku(`↩︎ ${person} 取り消し`);
+            save(); render();
+            break;
+          }
+        }
       } else if (row.kind === 'comment' && body) {
         danmaku(`💬 ${person}: ${body}`, true);
         S().comments.push({ t: Date.now(), person, text: body });
@@ -1683,6 +1694,7 @@ function initGuest() {
         <input id="gComment" placeholder="コメント → iPadに弾幕で流れる">
         <button onclick="gComment()">送信</button>
       </div>
+      <button class="gBtn" style="flex-direction:row;font-size:18px;padding:12px" onclick="gUndo()">↩︎ 1つ戻す（自分の分だけ）</button>
       <div id="gStatus" class="hint" style="text-align:center;min-height:1.2em;margin:0"></div>
     </div>`;
 }
@@ -1713,6 +1725,11 @@ function gSendDrink(k, amt) {
   const n = gGetName(); if (!n) { alert('先に名前を入れてね'); return; }
   playSound(k);
   gSend({ room: GUEST_ROOM, person: n, kind: 'drink', drink: k, amt });
+}
+function gUndo() {
+  const n = gGetName(); if (!n) { alert('先に名前を入れてね'); return; }
+  SFX.undo();
+  gSend({ room: GUEST_ROOM, person: n, kind: 'undo' });
 }
 function gComment() {
   const n = gGetName(); if (!n) { alert('先に名前を入れてね'); return; }
