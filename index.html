@@ -149,6 +149,12 @@
   .historyItem { padding: 10px 0; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px; }
   .historyItem .sum { font-size: 13px; color: var(--sub); margin-top: 3px; }
   .hidden { display: none; }
+  .person.aqua { animation: aquaGlow 2s ease-in-out infinite; }
+  @keyframes aquaGlow {
+    0%, 100% { box-shadow: 0 0 6px 0 rgba(126, 196, 232, .3); }
+    50% { box-shadow: 0 0 20px 4px rgba(126, 196, 232, .8); border-color: #7ec4e8; }
+  }
+  .toast.aquaToast { background: #7ec4e8; color: #0c2430; }
   @keyframes pulseWarn {
     0%, 100% { box-shadow: 0 0 0 0 rgba(224, 118, 46, 0); }
     50% { box-shadow: 0 0 16px 3px rgba(224, 118, 46, .7); border-color: #e0762e; }
@@ -381,6 +387,7 @@ const Lf = {
   warn4: n => lang() === 'ja' ? `☠️ ${n} 危険水域！！水を飲ませろ！` : `☠️ ${n} DANGER ZONE!! Get them water!`,
   removeConfirm: n => lang() === 'ja' ? `${n} を外す？（記録は残ります）` : `Remove ${n}? (records are kept)`,
   histLine: (p, t) => lang() === 'ja' ? `（${p}人・${t}タップ）` : `(${p} players, ${t} taps)`,
+  aquaToast: (n, w) => lang() === 'ja' ? `💧 ${n} ${w}杯目！水分マスター！えらすぎ！` : `💧 ${n}: ${w} waters! Hydration hero!`,
 };
 const SETTING_ROWS = [
   ['whisky', '🥃', { ja: '1プッシュ', en: 'per push' }, 'ml'],
@@ -656,6 +663,13 @@ function tap(name, ev, amt = 1) {
     confetti(20); SFX.add();
     showToast(Lf.milestone(name, cupsNow), 'goldToast');
   }
+  // 💧水3杯ごとの水分マスター祝福
+  if (currentDrink === 'water') {
+    const w = (stNow.water || { taps: 0 }).taps;
+    if (w > 0 && Number.isInteger(w) && w % 3 === 0) {
+      showToast(Lf.aquaToast(name, w), 'aquaToast'); SFX.add();
+    }
+  }
   if (ev) {
     const p = document.createElement('div');
     p.className = 'pop'; p.textContent = amt === 0.5 ? '+½' : '+1';
@@ -851,6 +865,10 @@ function render() {
   const medals = ['🥇', '🥈', '🥉'];
   const ranked = S().people.map(n => ({ n, g: alcGFor(n) }))
     .filter(p => p.g > 0).sort((a, b) => b.g - a.g).slice(0, 3);
+  // 💧ハイドレーションヒーロー（水2杯以上の最多者）
+  const waterRank = S().people.map(n => ({ n, w: (statsFor(S(), n).water || { taps: 0 }).taps }))
+    .sort((a, b) => b.w - a.w);
+  const aquaHero = waterRank[0] && waterRank[0].w >= 2 ? waterRank[0].n : null;
   document.getElementById('ranking').innerHTML = ranked.length
     ? `<span class="tw" style="top:8px;left:5%">✨</span>
        <span class="tw" style="top:62%;left:2%;animation-delay:.5s">✨</span>
@@ -917,10 +935,11 @@ function render() {
       mood += Lf.soberBy(tomorrow, end.getHours());
     }
     const esc = name.replace(/'/g, "\\'");
-    return `<div class="person ${tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : ''}" onclick="cardClick('${esc}', event)"
+    const cardCls = tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : (aquaHero === name ? 'aqua' : '');
+    return `<div class="person ${cardCls}" onclick="cardClick('${esc}', event)"
       onpointerdown="pressStart('${esc}', event)" onpointerup="pressEnd()" onpointerleave="pressEnd()">
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
-      <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${name}</div>
+      <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${aquaHero === name ? '💧' : ''}${name}</div>
       <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">${T('cupsUnit')}</span></div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
       <div class="alc ${tier}">🍶 ${Math.round(alcMl)}ml＝${eqLabel(alcG)}・💧${Math.round(waterMl)}ml　${mood}</div>
