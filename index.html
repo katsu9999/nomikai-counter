@@ -48,6 +48,10 @@
   .ranking:empty { display: none; }
   .ranking b { color: var(--amber); }
   .ranking .g { font-size: 13px; color: var(--sub); }
+  .eqToggle {
+    border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px;
+    font-size: 13px; color: var(--sub); cursor: pointer; background: var(--card);
+  }
   .person:active { background: var(--card-tap); transform: scale(0.97); }
   .person .name { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
   .person .count { font-size: 44px; font-weight: bold; color: var(--amber); line-height: 1.1; }
@@ -331,8 +335,19 @@ function statsFor(session, name) {
   return out;
 }
 const fmtN = n => Number.isInteger(n) ? n : n.toFixed(1);
-// 純アルgを「ビール(350ml缶)何本分」に換算。缶サイズ・度数はマスタ連動
-const beerEq = g => g / (getMl('beer') * getMl('abv_beer') / 100 * 0.8);
+// 純アルgの換算表示。単位はタップで切替（🍺本分⇄🍷杯分⇄🥃プッシュ分）・マスタ連動
+const EQ_UNITS = { beer: ['🍺', '本分'], wine: ['🍷', '杯分'], whisky: ['🥃', 'プッシュ分'] };
+const eqUnit = () => store.settings.eqUnit || 'beer';
+function eqLabel(g) {
+  const u = eqUnit();
+  const per = getMl(u) * getMl('abv_' + u) / 100 * 0.8;
+  return `${EQ_UNITS[u][0]}${(g / per).toFixed(1)}${EQ_UNITS[u][1]}`;
+}
+function cycleEq() {
+  const keys = Object.keys(EQ_UNITS);
+  store.settings.eqUnit = keys[(keys.indexOf(eqUnit()) + 1) % keys.length];
+  save(); render();
+}
 function alcGFor(name) {
   const st = statsFor(S(), name);
   return Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('abv_' + k) / 100 * 0.8, 0);
@@ -423,8 +438,10 @@ function render() {
   const medals = ['🥇', '🥈', '🥉'];
   const ranked = S().people.map(n => ({ n, g: alcGFor(n) }))
     .filter(p => p.g > 0).sort((a, b) => b.g - a.g).slice(0, 3);
-  document.getElementById('ranking').innerHTML =
-    ranked.map((p, i) => `<span>${medals[i]} <b>${p.n}</b> <span class="g">🍺${beerEq(p.g).toFixed(1)}本分</span></span>`).join('');
+  document.getElementById('ranking').innerHTML = ranked.length
+    ? `<span class="eqToggle" onclick="cycleEq()">${EQ_UNITS[eqUnit()][0]}換算 ⇄</span>` +
+      ranked.map((p, i) => `<span>${medals[i]} <b>${p.n}</b> <span class="g">${eqLabel(p.g)}</span></span>`).join('')
+    : '';
 
   // 参加者カード
   const d = DRINKS[currentDrink];
@@ -458,7 +475,7 @@ function render() {
       <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${name}</div>
       <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">杯</span></div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
-      <div class="alc ${tier}">🍶 ${Math.round(alcMl)}ml＝🍺${beerEq(alcG).toFixed(1)}本分・💧${Math.round(waterMl)}ml　${mood}</div>
+      <div class="alc ${tier}">🍶 ${Math.round(alcMl)}ml＝${eqLabel(alcG)}・💧${Math.round(waterMl)}ml　${mood}</div>
       <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}分</div>
     </div>`;
   }).join('') + `<div class="addCard" onclick="addPerson()">＋ 参加者を追加</div>`;
