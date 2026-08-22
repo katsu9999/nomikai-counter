@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#14100c">
-<title>GG プッシュカウンター</title>
+<title>GG グビロワイヤル</title>
 <style>
   :root {
     --bg: #14100c;
@@ -138,6 +138,29 @@
     animation: toastIn 3.5s forwards;
   }
   .toast.t4toast { background: var(--danger); }
+  .toast.goldToast { background: var(--amber); color: #1a1408; }
+  .confetti {
+    position: fixed; top: -14px; width: 10px; height: 14px; border-radius: 2px;
+    z-index: 98; pointer-events: none; animation: confFall linear forwards;
+  }
+  @keyframes confFall { to { transform: translateY(108vh) rotate(720deg); opacity: .8; } }
+  .cracker { position: fixed; top: 16%; font-size: 64px; z-index: 98; pointer-events: none; animation: crackerPop 1.5s ease-out forwards; }
+  @keyframes crackerPop {
+    0% { transform: scale(0.3); opacity: 0; }
+    20% { transform: scale(1.5); opacity: 1; }
+    60% { transform: scale(1); }
+    100% { opacity: 0; }
+  }
+  .spark { position: fixed; font-size: 20px; z-index: 97; pointer-events: none; animation: sparkFly .8s ease-out forwards; }
+  @keyframes sparkFly { to { transform: translate(var(--dx), var(--dy)) scale(0.4); opacity: 0; } }
+  .gulp { position: fixed; font-size: 46px; z-index: 98; pointer-events: none; animation: gulp 1s ease-in-out forwards; }
+  @keyframes gulp {
+    0% { transform: rotate(0) scale(1); opacity: 1; }
+    25% { transform: rotate(-45deg) scale(1.25); }
+    50% { transform: rotate(0) scale(1); }
+    75% { transform: rotate(-45deg) scale(1.25); }
+    100% { transform: rotate(0) scale(0.9); opacity: 0; }
+  }
   @keyframes toastIn {
     0% { opacity: 0; transform: translate(-50%, -20px); }
     10%, 80% { opacity: 1; transform: translate(-50%, 0); }
@@ -176,7 +199,7 @@
 <body>
 
 <header>
-  <h1>🥃 GG プッシュカウンター</h1>
+  <h1>🍻 GG グビロワイヤル</h1>
   <div class="drinkTabs" id="drinkTabs"></div>
   <div class="bottle" id="bottleWrap">
     <div class="label"><span>ニッカ 2.7L 残量</span><span id="bottleText"></span></div>
@@ -192,11 +215,11 @@
 
 <div class="toolbar">
   <button onclick="undo()">↩︎ 1つ戻す</button>
-  <button onclick="toggle('commentSec')">💬 コメント</button>
-  <button onclick="toggle('historySec'); renderHistory()">📜 過去の会</button>
-  <button onclick="exportJSON()">⬇️ JSON保存</button>
-  <button onclick="importJSON()">⬆️ 読み込み</button>
-  <button onclick="toggle('settingsSec')">⚙️ 設定</button>
+  <button onclick="SFX.click();toggle('commentSec')">💬 コメント</button>
+  <button onclick="SFX.click();toggle('historySec'); renderHistory()">📜 過去の会</button>
+  <button onclick="SFX.click();exportJSON()">⬇️ JSON保存</button>
+  <button onclick="SFX.click();importJSON()">⬆️ 読み込み</button>
+  <button onclick="SFX.click();toggle('settingsSec')">⚙️ 設定</button>
   <button class="warn" onclick="endSession()">🏁 今日の会を締める</button>
 </div>
 
@@ -339,21 +362,113 @@ function playSound(kind) {
   } catch (e) { /* 音が出なくてもカウントは止めない */ }
 }
 
+// ---- UI効果音（テレン・テンテン・テッテレー等） ----
+function toneSeq(notes, type = 'triangle', vol = 0.2, delay = 0) {
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === 'suspended') AC.resume();
+    let t = AC.currentTime + delay;
+    for (const [f, d] of notes) {
+      const o = AC.createOscillator(), g = AC.createGain();
+      o.type = type; o.frequency.setValueAtTime(f, t);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.015);
+      g.gain.exponentialRampToValueAtTime(0.001, t + d);
+      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + 0.02);
+      t += d * 0.85;
+    }
+  } catch (e) {}
+}
+const SFX = {
+  click: () => toneSeq([[660, 0.07]], 'triangle', 0.15),
+  tab:   () => toneSeq([[523, 0.06], [784, 0.09]], 'triangle', 0.18),
+  undo:  () => toneSeq([[500, 0.08], [330, 0.14]], 'sine', 0.2),
+  add:   () => toneSeq([[523, 0.07], [659, 0.07], [784, 0.14]], 'triangle', 0.2),
+  rank:  () => toneSeq([[880, 0.07], [880, 0.09]], 'square', 0.12, 0.35),          // 順位入替: テンテン
+  champ: () => toneSeq([[523, 0.09], [659, 0.09], [784, 0.09], [1047, 0.3]], 'square', 0.15, 0.35), // 首位交代: テッテレー
+  close: () => toneSeq([[784, 0.1], [659, 0.1], [523, 0.1], [659, 0.1], [1047, 0.35]], 'triangle', 0.2),
+};
+function showToast(text, cls = '') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + cls;
+  t.textContent = text;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+function confetti(n = 50) {
+  const colors = ['#f0b840', '#e0762e', '#c05040', '#7ec4e8', '#8fd18f', '#d99a2b'];
+  for (let i = 0; i < n; i++) {
+    const c = document.createElement('div');
+    c.className = 'confetti';
+    c.style.left = Math.random() * 100 + 'vw';
+    c.style.background = colors[i % colors.length];
+    c.style.animationDelay = (Math.random() * 0.4) + 's';
+    c.style.animationDuration = (1.4 + Math.random()) + 's';
+    document.body.appendChild(c);
+    setTimeout(() => c.remove(), 3200);
+  }
+  if (n >= 30) ['🎉', '🎊'].forEach((e, i) => {
+    const p = document.createElement('div');
+    p.className = 'cracker'; p.textContent = e;
+    p.style.left = i ? '72%' : '14%';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 1600);
+  });
+}
+function sparks(x, y) {
+  const em = ['✨', '🍻', '💫', '⭐'];
+  for (let i = 0; i < 5; i++) {
+    const s = document.createElement('div');
+    s.className = 'spark'; s.textContent = em[Math.floor(Math.random() * em.length)];
+    const ang = Math.random() * Math.PI * 2, dist = 50 + Math.random() * 60;
+    s.style.left = x + 'px'; s.style.top = y + 'px';
+    s.style.setProperty('--dx', Math.cos(ang) * dist + 'px');
+    s.style.setProperty('--dy', (Math.sin(ang) * dist - 30) + 'px');
+    document.body.appendChild(s);
+    setTimeout(() => s.remove(), 900);
+  }
+}
+function top3Names() {
+  return S().people.map(n => ({ n, g: alcGFor(n) })).filter(p => p.g > 0)
+    .sort((a, b) => b.g - a.g).slice(0, 3).map(p => p.n);
+}
+
 // ---- タップ（1杯）／長押し（半杯） ----
 function tap(name, ev, amt = 1) {
   const gBefore = alcGFor(name);
+  const topBefore = top3Names();
   playSound(currentDrink);
   S().events.push({ t: Date.now(), person: name, drink: currentDrink, amt });
   save(); render();
+  const topAfter = top3Names();
   const gAfter = alcGFor(name);
   if (gBefore < 60 && gAfter >= 60) alertWarn(name, 4);
   else if (gBefore < 40 && gAfter >= 40) alertWarn(name, 3);
+  else if (topAfter[0] && topAfter[0] !== topBefore[0]) {
+    SFX.champ(); confetti(50);
+    showToast(`👑 首位交代！ ${topAfter[0]} がNo.1！`, 'goldToast');
+  }
+  else if (topAfter.join() !== topBefore.join()) { SFX.rank(); confetti(14); }
+  // 5杯ごとの節目祝福（チェイサー除く）
+  const stNow = statsFor(S(), name);
+  const cupsNow = Object.entries(stNow).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.taps), 0);
+  if (currentDrink !== 'water' && cupsNow > 0 && Number.isInteger(cupsNow) && cupsNow % 5 === 0) {
+    confetti(20); SFX.add();
+    showToast(`🍻 ${name} ${cupsNow}杯目！いいペース！`, 'goldToast');
+  }
   if (ev) {
     const p = document.createElement('div');
     p.className = 'pop'; p.textContent = amt === 0.5 ? '+½' : '+1';
-    p.style.left = ev.clientX + 'px'; p.style.top = (ev.clientY - 30) + 'px';
+    p.style.left = ev.clientX + 'px'; p.style.top = (ev.clientY - 48) + 'px';
     document.body.appendChild(p);
     setTimeout(() => p.remove(), 700);
+    // グビグビ（グラスが傾く）
+    const gl = document.createElement('div');
+    gl.className = 'gulp'; gl.textContent = DRINKS[currentDrink].icon;
+    gl.style.left = (ev.clientX - 22) + 'px'; gl.style.top = (ev.clientY - 12) + 'px';
+    document.body.appendChild(gl);
+    setTimeout(() => gl.remove(), 1100);
+    sparks(ev.clientX, ev.clientY);
   }
 }
 // 飲みすぎ警報：しきい値を超えた瞬間にピコンピコン＋トースト
@@ -392,6 +507,7 @@ function cardClick(name, ev) {
 function undo() {
   const e = S().events.pop();
   if (!e) return;
+  SFX.undo();
   save(); render();
 }
 
@@ -400,7 +516,7 @@ function addPerson() {
   const name = (prompt('名前は？') || '').trim();
   if (!name) return;
   if (S().people.includes(name)) { alert('同じ名前がいます'); return; }
-  S().people.push(name); save(); render();
+  S().people.push(name); SFX.add(); save(); render();
 }
 function removePerson(name, ev) {
   ev.stopPropagation();
@@ -414,6 +530,7 @@ function addComment() {
   const text = el.value.trim();
   if (!text) return;
   S().comments.push({ t: Date.now(), text });
+  SFX.click();
   el.value = ''; save(); render();
 }
 
@@ -439,6 +556,7 @@ function eqLabel(g) {
 function cycleEq() {
   const keys = Object.keys(EQ_UNITS);
   store.settings.eqUnit = keys[(keys.indexOf(eqUnit()) + 1) % keys.length];
+  SFX.click();
   save(); render();
 }
 function alcGFor(name) {
@@ -458,6 +576,7 @@ function endSession() {
   const people = S().people;
   store.current = newSession();
   store.current.people = people; // メンバーは引き継ぐ
+  SFX.close();
   save(); render();
   alert('保存しました。新しい会を開始！');
 }
@@ -514,7 +633,7 @@ function toggle(id) { document.getElementById(id).classList.toggle('hidden'); }
 function render() {
   // ドリンクタブ
   document.getElementById('drinkTabs').innerHTML = Object.entries(DRINKS).map(([k, d]) =>
-    `<button class="${k === currentDrink ? 'active' : ''}" onclick="currentDrink='${k}';render()">${d.icon} ${d.label}</button>`
+    `<button class="${k === currentDrink ? 'active' : ''}" onclick="currentDrink='${k}';SFX.tab();render()">${d.icon} ${d.label}</button>`
   ).join('');
 
   // ボトル残量（ウイスキーのみ）
@@ -532,7 +651,7 @@ function render() {
   const ranked = S().people.map(n => ({ n, g: alcGFor(n) }))
     .filter(p => p.g > 0).sort((a, b) => b.g - a.g).slice(0, 3);
   document.getElementById('ranking').innerHTML = ranked.length
-    ? `<div class="rankHead"><span>🏆 摂取量ランキング</span>
+    ? `<div class="rankHead"><span>🏆 本日の酔王ランキング</span>
          <span class="eqToggle" onclick="cycleEq()">${EQ_UNITS[eqUnit()][0]}${getMl(eqUnit())}ml換算 ⇄</span></div>` +
       ranked.map((p, i) => {
         const pct = Math.max(5, p.g / ranked[0].g * 100);
