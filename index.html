@@ -50,7 +50,17 @@
   .hint { font-size: 13px; color: var(--sub); margin: -6px 0 12px; }
   .ranking {
     background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-    padding: 14px 16px; margin-bottom: 14px;
+    padding: 14px 16px; margin-bottom: 14px; position: relative; overflow: hidden;
+    animation: rankGlow 2.4s ease-in-out infinite;
+  }
+  @keyframes rankGlow {
+    0%, 100% { box-shadow: 0 0 6px 0 rgba(217, 154, 43, .2); border-color: var(--line); }
+    50% { box-shadow: 0 0 22px 4px rgba(217, 154, 43, .55); border-color: var(--amber); }
+  }
+  .tw { position: absolute; font-size: 16px; pointer-events: none; animation: twinkle 1.6s ease-in-out infinite; }
+  @keyframes twinkle {
+    0%, 100% { opacity: .1; transform: scale(.6) rotate(0); }
+    50% { opacity: 1; transform: scale(1.2) rotate(20deg); }
   }
   .ranking:empty { display: none; }
   .rankHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 15px; color: var(--amber); font-weight: bold; }
@@ -70,8 +80,17 @@
   .rBar { background: var(--amber); border-radius: 7px; transition: width .3s; }
   .rVal { font-size: 13px; color: var(--sub); white-space: nowrap; }
   .r0 .rMedal { font-size: 30px; }
-  .r0 .rName { font-size: 26px; font-weight: bold; color: var(--amber); }
-  .r0 .rBar { height: 18px; background: linear-gradient(90deg, var(--amber), #f0b840); }
+  .r0 .rName { font-size: 26px; font-weight: bold; color: var(--amber); animation: nameGlow 1.8s ease-in-out infinite; }
+  @keyframes nameGlow {
+    0%, 100% { text-shadow: 0 0 8px rgba(240, 184, 64, .5); }
+    50% { text-shadow: 0 0 22px rgba(255, 224, 138, 1); }
+  }
+  .r0 .rBar {
+    height: 18px;
+    background: linear-gradient(90deg, var(--amber), #f0b840, #ffe08a, #f0b840, var(--amber));
+    background-size: 200% 100%; animation: shimmer 1.6s linear infinite;
+  }
+  @keyframes shimmer { to { background-position: 200% 0; } }
   .r0 .rVal { font-size: 16px; font-weight: bold; color: var(--text); }
   .r1 .rMedal { font-size: 21px; }
   .r1 .rName { font-size: 18px; }
@@ -833,7 +852,11 @@ function render() {
   const ranked = S().people.map(n => ({ n, g: alcGFor(n) }))
     .filter(p => p.g > 0).sort((a, b) => b.g - a.g).slice(0, 3);
   document.getElementById('ranking').innerHTML = ranked.length
-    ? `<div class="rankHead"><span>${T('rankTitle')}</span>
+    ? `<span class="tw" style="top:8px;left:5%">✨</span>
+       <span class="tw" style="top:62%;left:2%;animation-delay:.5s">✨</span>
+       <span class="tw" style="top:14%;right:4%;animation-delay:.9s">⭐</span>
+       <span class="tw" style="bottom:8px;right:14%;animation-delay:1.2s">✨</span>
+       <div class="rankHead"><span>${T('rankTitle')}</span>
          <span class="eqToggle" onclick="cycleEq()">${Lf.eqChip(EQ_UNITS[eqUnit()][0], getMl(eqUnit()))}</span></div>` +
       ranked.map((p, i) => {
         const pct = Math.max(5, p.g / ranked[0].g * 100);
