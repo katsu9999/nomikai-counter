@@ -238,6 +238,26 @@
   }
   .waterCut { background: radial-gradient(circle, rgba(0, 0, 0, 0) 40%, rgba(20, 60, 90, .55)); }
   .waterCut .cutText { text-shadow: 0 0 26px #7ec4e8, 0 4px 0 #1a4a66; }
+  .omikujiCut { background: radial-gradient(circle, rgba(0,0,0,.1) 30%, rgba(40, 10, 60, .65)); animation-duration: 5.2s; }
+  .omBox { position: absolute; top: 26%; left: 50%; font-size: 110px; transform: translateX(-50%); animation: omShake .3s linear 0s 8; }
+  @keyframes omShake {
+    0%, 100% { transform: translateX(-52%) rotate(-12deg); }
+    50% { transform: translateX(-48%) rotate(12deg); }
+  }
+  .omTitle { animation-duration: 2.5s; }
+  .omResult {
+    position: absolute; top: 36%; left: 50%; transform: translate(-50%, -50%) scale(0);
+    font-size: min(90px, 13vw); font-weight: 900; color: #ffe08a;
+    text-shadow: 0 0 34px var(--amber), 0 5px 0 #7a5510; white-space: nowrap;
+    transition: transform .45s cubic-bezier(.2, 1.6, .4, 1);
+  }
+  .omResult.show { transform: translate(-50%, -50%) scale(1); }
+  .omMsg {
+    position: absolute; top: 58%; left: 50%; transform: translate(-50%, -50%);
+    font-size: min(26px, 4.5vw); font-weight: bold; color: #fff; text-align: center; width: 84%;
+    text-shadow: 0 2px 10px rgba(0,0,0,.9); opacity: 0; transition: opacity .5s;
+  }
+  .omMsg.show { opacity: 1; }
   .eventCut .cutText { color: #ffe08a; }
   .eventCut .cutIcon { font-size: 120px; }
   .hype {
@@ -669,6 +689,46 @@ const CUT_TEXTS = {
   },
 };
 SFX.ace = () => toneSeq([[180, 0.05], [880, 0.07], [1320, 0.16]], 'square', 0.18, 0.1);
+// 🎋 おみくじ（タップの約2割で発動・5秒演出）
+const OMIKUJI = {
+  ja: [['🌸 大大吉', 2], ['🎉 大吉', 20], ['😊 中吉', 25], ['🙂 小吉', 20], ['🍀 吉', 20], ['🌙 末吉', 10], ['⚡ 凶!?', 3]],
+  en: [['🌸 MEGA LUCK', 2], ['🎉 GREAT LUCK', 20], ['😊 GOOD LUCK', 25], ['🙂 SOME LUCK', 20], ['🍀 LUCK', 20], ['🌙 LATE LUCK', 10], ['⚡ BAD LUCK!?', 3]],
+};
+const SPIRIT = {
+  ja: ['あなた、今夜の主役よ✨', 'その笑顔が最強の運気よ', '水を一杯挟むと運が倍になるわ', '隣の人に乾杯すると幸運が来るわよ', '深呼吸して。あなたは最高よ', '明日のあなたも今夜のあなたに感謝するわ', 'ゆっくり飲むのが勝ちの流れよ', '今夜の出会いに感謝すると運が開けるわ'],
+  en: ['You\'re the star tonight ✨', 'That smile is your best luck', 'A glass of water doubles your fortune', 'Toast your neighbor for good luck', 'Breathe. You\'re amazing', 'Tomorrow-you will thank tonight-you', 'Slow sips win the night'],
+};
+function omikuji(name) {
+  document.querySelectorAll('.cut:not(.eventCut)').forEach(e => e.remove());
+  const ja = lang() === 'ja';
+  const ov = document.createElement('div');
+  ov.className = 'cut omikujiCut';
+  ov.innerHTML = `<div class="omBox">⛩️</div>
+    <div class="cutText omTitle">${ja ? 'おみくじターイム！！' : 'FORTUNE TIME!!'}</div>
+    <div class="omResult"></div><div class="omMsg"></div>`;
+  document.body.appendChild(ov);
+  // ドラムロール（2.4秒・だんだん速く聞こえる2音交互）
+  let tick = 0;
+  const dr = setInterval(() => { toneSeq([[300 + (tick % 2) * 90, 0.05]], 'square', 0.12); tick++; }, 160);
+  setTimeout(() => clearInterval(dr), 2400);
+  setTimeout(() => {
+    const list = OMIKUJI[lang()];
+    const total = list.reduce((a, x) => a + x[1], 0);
+    let r = Math.random() * total, label = list[0][0];
+    for (const [l, w] of list) { r -= w; if (r <= 0) { label = l; break; } }
+    const isKyo = label.includes('凶') || label.includes('BAD');
+    const msg = isKyo
+      ? (ja ? '…でも水を1杯飲めば回避できるわ💧' : '...but one glass of water cancels it 💧')
+      : `${name}、${SPIRIT[lang()][Math.floor(Math.random() * SPIRIT[lang()].length)]}`;
+    ov.querySelector('.omBox').remove();
+    ov.querySelector('.omResult').textContent = label;
+    ov.querySelector('.omResult').classList.add('show');
+    ov.querySelector('.omMsg').textContent = msg;
+    ov.querySelector('.omMsg').classList.add('show');
+    SFX.champ(); if (!isKyo) confetti(30);
+  }, 2500);
+  setTimeout(() => ov.remove(), 5200);
+}
 function megaReaction(drink, name) {
   // テニス実況ムービー（4.5秒2幕構成）：実況スラム → 名前入りサブテキスト → 🎾2往復
   document.querySelectorAll('.cut:not(.eventCut)').forEach(e => e.remove()); // 連打時は最新だけ表示
@@ -809,7 +869,8 @@ function tap(name, ev, amt = 1) {
     document.body.appendChild(gl);
     setTimeout(() => gl.remove(), 1100);
     sparks(ev.clientX, ev.clientY);
-    megaReaction(currentDrink, name);
+    if (Math.random() < 0.2) omikuji(name);
+    else megaReaction(currentDrink, name);
   }
 }
 // 飲みすぎ警報：しきい値を超えた瞬間にピコンピコン＋トースト
