@@ -134,6 +134,12 @@
     padding: 4px 8px; opacity: .5;
   }
   .person .del.edit { right: auto; left: 10px; }
+  .person .vibeBtn {
+    position: absolute; bottom: 8px; right: 10px; font-size: 24px; padding: 4px 8px;
+    cursor: pointer; filter: drop-shadow(0 0 6px rgba(240, 184, 64, .5));
+    transition: transform .1s;
+  }
+  .person .vibeBtn:active { transform: scale(1.4); }
   .addCard {
     border: 2px dashed var(--line); border-radius: 16px; display: flex; align-items: center;
     justify-content: center; font-size: 17px; color: var(--sub); padding: 18px; cursor: pointer; min-height: 130px;
@@ -955,15 +961,26 @@ function alertWarn(name, lvl) {
 
 let pressTimer = null, longPressed = false;
 function pressStart(name, ev) {
-  if (ev.target.classList.contains('del')) return;
+  if (ev.target.classList.contains('del') || ev.target.classList.contains('vibeBtn')) return;
   longPressed = false;
   pressTimer = setTimeout(() => { longPressed = true; tap(name, ev, 0.5); }, 500);
 }
 function pressEnd() { clearTimeout(pressTimer); }
 function cardClick(name, ev) {
-  if (ev.target.classList.contains('del')) return;
+  if (ev.target.classList.contains('del') || ev.target.classList.contains('vibeBtn')) return;
   if (longPressed) { longPressed = false; return; } // 長押し済みならclickは無視
   tap(name, ev, 1);
+}
+// 😆いいね：カード右下のボタンでワンタップ発動（モード切替不要・完全ノーカン）
+function vibeTap(name, ev) {
+  ev.stopPropagation();
+  lastTap = Date.now();
+  playSound('vibe');
+  S().events.push({ t: Date.now(), person: name, drink: 'vibe', amt: 1 });
+  save(); render();
+  sparks(ev.clientX, ev.clientY);
+  if (Math.random() < 0.2) omikuji(name);
+  else megaReaction('vibe', name);
 }
 function undo() {
   const e = S().events.pop();
@@ -1192,7 +1209,7 @@ function toggle(id) { document.getElementById(id).classList.toggle('hidden'); }
 
 function render() {
   // ドリンクタブ
-  document.getElementById('drinkTabs').innerHTML = Object.entries(DRINKS).map(([k, d]) =>
+  document.getElementById('drinkTabs').innerHTML = Object.entries(DRINKS).filter(([k]) => k !== 'vibe').map(([k, d]) =>
     `<button class="${k === currentDrink ? 'active' : ''}" onclick="currentDrink='${k}';SFX.tab();render()">${d.icon} ${lang() === 'en' ? d.en : d.label}</button>`
   ).join('');
 
@@ -1317,6 +1334,7 @@ function render() {
       onpointerdown="pressStart('${esc}', event)" onpointerup="pressEnd()" onpointerleave="pressEnd()">
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
       <div class="del edit" onclick="renamePerson('${esc}', event)">✎</div>
+      <div class="vibeBtn" onclick="vibeTap('${esc}', event)">😆</div>
       <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${aquaHero === name || soberBlue ? '💧' : ''}${name}</div>
       <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">${T('cupsUnit')}</span></div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
