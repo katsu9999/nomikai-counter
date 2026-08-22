@@ -654,8 +654,8 @@ const cupMlOf = k => DRINKS[k].cupMl || getMl(k) || 1;
 const isNoCount = k => k === 'water' || k === 'vibe'; // 杯数・酒量にカウントしない種別
 const KEY = 'nomikai-counter-v1';
 // 📱 リモート参加（QR→スマホ投稿）。Supabaseの2値を貼ると有効化される
-const SB_URL = 'PASTE_SUPABASE_URL';   // 例: https://xxxx.supabase.co
-const SB_KEY = 'PASTE_ANON_KEY';       // Settings→API の anon/publishable キー
+const SB_URL = 'https://stuwqwghbnimbiimrerx.supabase.co';   // 例: https://xxxx.supabase.co
+const SB_KEY = 'sb_publishable_TTSYuSGpnjMBh1pYknqaPQ_8ZRbc-Gt';       // Settings→API の anon/publishable キー
 const SB_ON = SB_URL.startsWith('https://');
 const SB_HEADERS = { apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json' };
 const GUEST_ROOM = new URLSearchParams(location.search).get('room');
