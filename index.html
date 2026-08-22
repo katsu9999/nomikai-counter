@@ -1203,9 +1203,21 @@ function render() {
   const waterRank = S().people.map(n => ({ n, w: (statsFor(S(), n).water || { taps: 0 }).taps }))
     .sort((a, b) => b.w - a.w);
   const aquaHero = waterRank[0] && waterRank[0].w >= 2 ? waterRank[0].n : null;
-  const wr = waterRank.filter(p => p.w > 0).slice(0, 3);
+  // 水分ヒーロー：酒ゼロの人が断トツ上位。飲んでる人は酒量との比較付きで下位
+  const jaR = lang() === 'ja';
+  const wr = S().people.map(n => {
+    const st2 = statsFor(S(), n);
+    const w = st2.water ? st2.water.taps : 0;
+    const alcCups = Object.entries(st2).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.taps), 0);
+    return { n, w, alcCups };
+  }).filter(p => p.w > 0)
+    .sort((a, b) => ((a.alcCups === 0 ? 0 : 1) - (b.alcCups === 0 ? 0 : 1)) || b.w - a.w || a.alcCups - b.alcCups)
+    .slice(0, 3);
+  const wrLabel = p => p.alcCups === 0
+    ? (jaR ? `${p.n} 水${fmtN(p.w)}杯 🏅酒ゼロ！` : `${p.n} water ×${fmtN(p.w)} 🏅zero alc!`)
+    : (jaR ? `${p.n} 水${fmtN(p.w)}杯（酒${fmtN(p.alcCups)}杯）` : `${p.n} water ×${fmtN(p.w)} (alc ×${fmtN(p.alcCups)})`);
   const aquaRow = wr.length
-    ? `<div class="aquaRank">💧 ${lang() === 'ja' ? '水分ヒーロー' : 'Hydration heroes'}：${wr.map((p, i) => `${medals[i]}${p.n} ${fmtN(p.w)}${lang() === 'ja' ? '杯' : ''}`).join('　')}</div>`
+    ? `<div class="aquaRank">💧 ${jaR ? '水分ヒーロー' : 'Hydration heroes'}：${wr.map((p, i) => `${medals[i]}${wrLabel(p)}`).join('　')}</div>`
     : '';
   document.getElementById('ranking').innerHTML = (ranked.length || wr.length)
     ? `<span class="tw" style="top:8px;left:5%">✨</span>
