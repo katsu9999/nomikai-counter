@@ -135,6 +135,16 @@
   }
   .person .del.edit { right: auto; left: 10px; }
   .person .dRow { display: flex; justify-content: center; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+  /* コンパクト表示：詳細行を隠して1画面に大人数 */
+  .grid.compact { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; }
+  .grid.compact .person { padding: 10px 8px; }
+  .grid.compact .glasses, .grid.compact .alc, .grid.compact .kcal,
+  .grid.compact .aquaLine, .grid.compact .luckLine { display: none; }
+  .grid.compact .person .name { font-size: 17px; margin-bottom: 2px; }
+  .grid.compact .person .count { font-size: 30px; }
+  .grid.compact .person .count .cupsUnit { font-size: 13px; }
+  .grid.compact .dBtn { font-size: 18px; padding: 5px 6px; border-radius: 9px; }
+  .grid.compact .dRow { gap: 3px; margin-top: 6px; }
   .person .dBtn {
     font-size: 24px; padding: 7px 9px; background: var(--bg); border: 1px solid var(--line);
     border-radius: 12px; cursor: pointer; transition: transform .08s;
@@ -390,6 +400,7 @@
   <button id="btnUndo" onclick="undo()">↩︎ 1つ戻す</button>
   <button id="btnComment" onclick="SFX.click();toggle('commentSec')">💬 コメント</button>
   <button id="btnHistory" onclick="SFX.click();toggle('historySec'); renderHistory()">📜 過去の会</button>
+  <button id="btnCompact" onclick="toggleCompact()">🗜️ コンパクト</button>
   <button id="btnSettings" onclick="SFX.click();toggle('settingsSec')">⚙️ 設定</button>
   <button class="warn" id="btnEnd" onclick="endSession()">🏁 今日の会を締める</button>
 </div>
@@ -467,6 +478,8 @@ const L = {
   noRecords: { ja: 'まだ記録がありません', en: 'Nothing recorded yet' },
   endConfirm: { ja: '今日の会を締めて履歴に保存する？', en: 'End tonight\'s session and save to history?' },
   savedNew: { ja: '保存しました。新しい会を開始！', en: 'Saved! New session started.' },
+  btnCompactOff: { ja: '🗜️ コンパクト', en: '🗜️ Compact' },
+  btnCompactOn: { ja: '📖 詳細表示', en: '📖 Details' },
   importConfirm: { ja: '今のデータを読み込んだ内容で置き換える？', en: 'Replace current data with the loaded file?' },
   importErr: { ja: 'JSONが読めませんでした', en: 'Could not read that JSON' },
 };
@@ -535,6 +548,11 @@ function applyStatic() {
   }
   document.getElementById('commentInput').placeholder = T('commentPh');
   document.getElementById('langBtn').textContent = lang() === 'ja' ? 'EN' : '日本語';
+  document.getElementById('btnCompact').textContent = store.settings.compact ? T('btnCompactOn') : T('btnCompactOff');
+}
+function toggleCompact() {
+  store.settings.compact = !store.settings.compact;
+  SFX.click(); save(); applyStatic(); render();
 }
 function toggleLang() {
   store.settings.lang = lang() === 'ja' ? 'en' : 'ja';
@@ -1283,8 +1301,8 @@ function render() {
     : '';
 
   // 参加者カード
-  const d = DRINKS[currentDrink];
   const grid = document.getElementById('grid');
+  grid.className = 'grid' + (store.settings.compact ? ' compact' : '');
   grid.innerHTML = S().people.map(name => {
     const st = statsFor(S(), name);
     const totalTaps = Object.entries(st).reduce((a, [k, v]) => a + (isNoCount(k) ? 0 : v.taps), 0);
