@@ -182,6 +182,11 @@
     50% { box-shadow: 0 0 16px 3px rgba(224, 118, 46, .7); border-color: #e0762e; }
   }
   .person.warn3 { animation: pulseWarn 1.6s infinite; }
+  @keyframes pulseYellow {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(240, 200, 60, 0); }
+    50% { box-shadow: 0 0 14px 3px rgba(240, 200, 60, .55); border-color: #f0c83c; }
+  }
+  .person.warn2 { animation: pulseYellow 2s infinite; }
   @keyframes pulseDanger {
     0%, 100% { box-shadow: 0 0 0 0 rgba(192, 80, 64, 0); }
     50% { box-shadow: 0 0 22px 6px rgba(192, 80, 64, .9); border-color: var(--danger); }
@@ -1316,7 +1321,10 @@ function render() {
     const esc = name.replace(/'/g, "\\'");
     // 飲まない人（純アル0で水あり）は全員ちゃんと青く光る。水最多ヒーローも青
     const soberBlue = alcG === 0 && wTaps > 0;
-    const cardCls = tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : (soberBlue || hydratedBlue || aquaHero === name ? 'aqua' : '');
+    // 色の旅：赤(t4)→オレンジ(t3)→黄(t2)→水色(💧十分)。飲まない人は常に水色
+    const cardCls = tier === 't4' ? 'warn4' : tier === 't3' ? 'warn3'
+      : (soberBlue || hydratedBlue || aquaHero === name) ? 'aqua'
+      : tier === 't2' ? 'warn2' : '';
     const dRow = Object.keys(DRINKS).map(k =>
       `<button class="dBtn${k === 'vibe' ? ' dVibe' : ''}"
         onpointerdown="pressStart('${esc}', event, '${k}')" onpointerup="pressEnd()" onpointerleave="pressEnd()"
