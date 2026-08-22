@@ -340,6 +340,7 @@ const DRINKS = {
   wine:   { icon: '🍷', label: 'ワイン',     en: 'Wine',     cupMl: null },
   beer:   { icon: '🍺', label: 'ビール',     en: 'Beer',     cupMl: null },
   cocktail: { icon: '🍹', label: 'カクテル', en: 'Cocktail', cupMl: null },
+  sake:     { icon: '🍶', label: '日本酒',   en: 'Sake',     cupMl: null },
   water:    { icon: '💧', label: 'チェイサー', en: 'Chaser',  cupMl: null },
 };
 // ---- 日英辞書 ----
@@ -404,6 +405,7 @@ const SETTING_ROWS = [
   ['wine', '🍷', { ja: '1杯', en: 'per glass' }, 'ml'],
   ['beer', '🍺', { ja: '1杯', en: 'per glass' }, 'ml'],
   ['cocktail', '🍹', { ja: '1杯', en: 'per glass' }, 'ml'],
+  ['sake', '🍶', { ja: '1杯（1合=180）', en: 'per cup (gō=180)' }, 'ml'],
   ['water', '💧', { ja: '1杯', en: 'per glass' }, 'ml'],
   ['bottle', '🥃', { ja: 'ボトル容量', en: 'bottle size' }, 'ml'],
   ['wineBottle', '🍾', { ja: 'ワインボトル容量', en: 'wine bottle size' }, 'ml'],
@@ -412,16 +414,29 @@ const SETTING_ROWS = [
   ['kcal100_wine', '🍷', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
   ['kcal100_beer', '🍺', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
   ['kcal100_cocktail', '🍹', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
+  ['kcal100_sake', '🍶', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
   ['tennisRoundKcal', '🎾', { ja: '1ラウンド(20分)の消費', en: 'kcal per round (20min)' }, 'kcal'],
   ['abv_whisky', '🥃', { ja: '度数', en: 'ABV' }, '%'],
   ['abv_wine', '🍷', { ja: '度数', en: 'ABV' }, '%'],
   ['abv_beer', '🍺', { ja: '度数', en: 'ABV' }, '%'],
   ['abv_cocktail', '🍹', { ja: '度数', en: 'ABV' }, '%'],
+  ['abv_sake', '🍶', { ja: '度数', en: 'ABV' }, '%'],
 ];
+function applyPreset(m) {
+  if (m === 'pub') { store.settings.beer = 568; store.settings.abv_beer = 4.6; }
+  else { store.settings.beer = 350; store.settings.abv_beer = 5; }
+  SFX.tab(); save(); renderSettings(); render();
+}
 function buildSettings() {
-  document.getElementById('settingsRows').innerHTML = SETTING_ROWS.map(([k, icon, lbl, unit]) =>
-    `<div class="setRow">${icon} ${lbl[lang()]} <input type="number" step="any" id="set_${k}" onchange="setMaster('${k}', this.value)"> ${unit}</div>`
-  ).join('');
+  const ja = lang() === 'ja';
+  document.getElementById('settingsRows').innerHTML =
+    `<div class="setRow">
+      <button class="eqToggle" onclick="applyPreset('home')">${ja ? '🏠 宅飲みプリセット（缶350ml）' : '🏠 Home preset (350ml can)'}</button>
+      <button class="eqToggle" onclick="applyPreset('pub')">${ja ? '🍺 パブUKプリセット（1パイント568ml）' : '🍺 UK pub preset (568ml pint)'}</button>
+    </div>` +
+    SETTING_ROWS.map(([k, icon, lbl, unit]) =>
+      `<div class="setRow">${icon} ${lbl[lang()]} <input type="number" step="any" id="set_${k}" onchange="setMaster('${k}', this.value)"> ${unit}</div>`
+    ).join('');
   renderSettings();
 }
 function applyStatic() {
@@ -440,13 +455,13 @@ function toggleLang() {
 }
 // マスタ設定（⚙️設定から変更可・localStorageに保存される）
 const DEFAULT_SETTINGS = {
-  whisky: 25, wine: 175, beer: 350, cocktail: 200, water: 200, bottle: 2700,
+  whisky: 25, wine: 175, beer: 350, cocktail: 200, sake: 180, water: 200, bottle: 2700,
   // カロリー係数（kcal/100ml）とテニス1回（2hダブルス想定）の消費kcal
   // GGテニス=2hで6ラウンド想定。1ラウンド(約20分ダブルス)≒100kcal
-  kcal100_whisky: 237, kcal100_wine: 83, kcal100_beer: 42, kcal100_cocktail: 100, tennisRoundKcal: 100,
+  kcal100_whisky: 237, kcal100_wine: 83, kcal100_beer: 42, kcal100_cocktail: 100, kcal100_sake: 103, tennisRoundKcal: 100,
   // アルコール度数（%）。純アルコールg = ml × 度数/100 × 0.8
   // カクテル=スプリッツ想定：スパークリングワイン⅓+カンパリ⅓+炭酸水⅓ ≒ 12%（アペロールなら約7%）
-  abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, abv_cocktail: 12, // ブラックニッカ クリア=37%
+  abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, abv_cocktail: 12, abv_sake: 15, // ブラックニッカ クリア=37%・日本酒1合180ml/15%
   kcal100_water: 0, abv_water: 0, // チェイサーはノーカン
   burnGh: 5, // 肝臓のアルコール分解速度（g/時）。「🕐◯時に抜ける」の根拠
   wineBottle: 750, // ゴミ山のワインボトル換算
@@ -518,7 +533,7 @@ function playSound(kind) {
     } else if (kind === 'water') {
       // 軽いコポコポ
       [0, 0.12].forEach(dt => glug(t0 + dt, 620, 320, 0.1, 0.25));
-    } else if (kind === 'wine' || kind === 'cocktail') {
+    } else if (kind === 'wine' || kind === 'cocktail' || kind === 'sake') {
       // トゥクトゥクトゥク（注ぐ音）。カクテルは炭酸のシュワも足す
       [0, 0.14, 0.28, 0.42].forEach((dt, i) => glug(t0 + dt, 480 + i * 60, 240, 0.12, 0.35));
       if (kind === 'cocktail') noise(t0 + 0.5, 0.6, 'bandpass', 5000, 0.25);
@@ -591,6 +606,7 @@ const HYPE = {
     wine: ['エレガント！', 'おしゃれ〜！', 'マリアージュ！', 'ボルドー気分！'],
     beer: ['プハーッ！', 'グビグビ！', 'とりあえず！', '最高かよ！'],
     cocktail: ['シャレオツ！', 'スプリッツ！', 'チンチン！🥂', 'アペロール〜！'],
+    sake: ['キュッと一合！', 'とっくり追加！', '大吟醸〜！', '熱燗もあり！'],
     water: ['えらい！', 'ナイス水分！', '肝臓が喜んでる！', '明日の自分が感謝！'],
   },
   en: {
@@ -598,6 +614,7 @@ const HYPE = {
     wine: ['Elegant!', 'Magnifique!', 'Santé!', 'Bordeaux vibes!'],
     beer: ['Gulp gulp!', 'Refreshing!', 'First round!', 'So good!'],
     cocktail: ['Fancy!', 'Spritz time!', 'Cin cin!🥂', 'Aperol hour!'],
+    sake: ['Kanpai!', 'Junmai vibes!', 'One more gō!', 'Rice magic!'],
     water: ['Smart move!', 'Hydration!', 'Your liver thanks you!', 'Tomorrow-you approves!'],
   },
 };
@@ -815,7 +832,11 @@ const eqUnit = () => store.settings.eqUnit || 'beer';
 function eqLabel(g) {
   const u = eqUnit();
   const per = getMl(u) * getMl('abv_' + u) / 100 * 0.8;
-  return `${EQ_UNITS[u][0]}${(g / per).toFixed(1)}${lang() === 'ja' ? EQ_UNITS[u][1] : EQ_UNITS[u][2]}`;
+  // ビール500ml以上ならパイント表記（パブモード）
+  const unit = u === 'beer' && getMl('beer') >= 500
+    ? (lang() === 'ja' ? 'パイント分' : ' pints')
+    : (lang() === 'ja' ? EQ_UNITS[u][1] : EQ_UNITS[u][2]);
+  return `${EQ_UNITS[u][0]}${(g / per).toFixed(1)}${unit}`;
 }
 function cycleEq() {
   const keys = Object.keys(EQ_UNITS);
@@ -951,7 +972,12 @@ function render() {
   const petN = sumTaps('water') * getMl('water') / getMl('waterPet');
   const whiskyBot = whiskyUsedMl(S()) / getMl('bottle');
   const tParts = [];
-  if (beerN) tParts.push(`<span class="pile">${pile('🥫', beerN, 'cCan') || '<span class="cCan">🥫</span>'}</span><span class="tN">${fmtN(beerN)}${ja ? '缶' : ' cans'}</span>`);
+  const pint = getMl('beer') >= 500;
+  if (beerN) tParts.push(pint
+    ? `<span class="pile">${pile('🍺', beerN, '') || '🍺'}</span><span class="tN">${fmtN(beerN)}${ja ? 'パイント' : ' pints'}</span>`
+    : `<span class="pile">${pile('🥫', beerN, 'cCan') || '<span class="cCan">🥫</span>'}</span><span class="tN">${fmtN(beerN)}${ja ? '缶' : ' cans'}</span>`);
+  const sakeN = sumTaps('sake');
+  if (sakeN) tParts.push(`<span class="pile">${pile('🍶', sakeN, 'cPet') || '🍶'}</span><span class="tN">${fmtN(sakeN)}${ja ? '合' : ' gō'}</span>`);
   if (wineBot > 0) tParts.push(`<span class="pile">${pile('🍾', wineBot, 'cBottle') || '🍷'}</span><span class="tN">${wineBot.toFixed(1)}${ja ? '本' : ' bottles'}</span>`);
   if (cockN) tParts.push(`<span class="pile">${pile('🍹', cockN, '') || '🍹'}</span><span class="tN">${fmtN(cockN)}${ja ? '杯' : ' glasses'}</span>`);
   if (petN > 0) tParts.push(`<span class="pile">${pile('🧴', petN, 'cPet') || '<span class="cPet">🧴</span>'}</span><span class="tN">${ja ? 'ペットボトル' : 'PET'} ${petN.toFixed(1)}${ja ? '本' : ''}</span>`);
