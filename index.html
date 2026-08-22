@@ -444,6 +444,7 @@
   <h1 id="appTitle">🍻 GG グビロワイヤル</h1>
   <button class="eqToggle" id="langBtn" onclick="toggleLang()">EN</button>
   <button class="eqToggle" id="sportBtn" onclick="cycleSport()">🎾</button>
+  <button class="eqToggle" id="soundBtn" onclick="cycleSound()">🎮</button>
   <div class="bottle" id="bottleWrap">
     <div class="label"><span id="bottleLabel">ニッカ残量</span><span id="bottleText"></span></div>
     <div class="bar"><div id="bottleBar"></div></div>
@@ -624,6 +625,7 @@ function applyStatic() {
   document.getElementById('langBtn').textContent = lang() === 'ja' ? 'EN' : '日本語';
   document.getElementById('btnCompact').textContent = store.settings.compact ? T('btnCompactOn') : T('btnCompactOff');
   document.getElementById('sportBtn').textContent = SPORTS[sport()];
+  document.getElementById('soundBtn').textContent = SOUND_THEMES[soundTheme()];
   document.getElementById('btnQr').style.display = SB_ON ? '' : 'none';
 }
 const cardSizeOv = {}; // カード個別のサイズ上書き（'compact'|'detail'）
@@ -756,18 +758,46 @@ function playSound(kind) {
 }
 
 // ---- UI効果音（テレン・テンテン・テッテレー等） ----
+// サウンドテーマ：🎮8bit / 🎻オーケストラ / 🎹極太シンセ
+const SOUND_THEMES = { chip: '🎮', orch: '🎻', synth: '🎹' };
+const soundTheme = () => (store.settings && store.settings.soundTheme) || 'chip';
+function cycleSound() {
+  const keys = Object.keys(SOUND_THEMES);
+  store.settings.soundTheme = keys[(keys.indexOf(soundTheme()) + 1) % keys.length];
+  save();
+  document.getElementById('soundBtn').textContent = SOUND_THEMES[soundTheme()];
+  toneSeq([[523, .09], [659, .09], [784, .2]], 'triangle', 0.2); // 試聴ジングル
+}
 function toneSeq(notes, type = 'triangle', vol = 0.2, delay = 0) {
   try {
     AC = AC || new (window.AudioContext || window.webkitAudioContext)();
     if (AC.state === 'suspended') AC.resume();
+    const theme = soundTheme();
     let t = AC.currentTime + delay;
     for (const [f, d] of notes) {
-      const o = AC.createOscillator(), g = AC.createGain();
-      o.type = type; o.frequency.setValueAtTime(f, t);
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.015);
-      g.gain.exponentialRampToValueAtTime(0.001, t + d);
-      o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d + 0.02);
+      const mk = (freq, wave, v, dur, detune) => {
+        const o = AC.createOscillator(), g = AC.createGain();
+        o.type = wave; o.frequency.setValueAtTime(freq, t);
+        if (detune) o.detune.setValueAtTime(detune, t);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(v, t + 0.015);
+        g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        o.connect(g); g.connect(AC.destination);
+        o.start(t); o.stop(t + dur + 0.02);
+      };
+      if (theme === 'orch') {
+        // 弦セクション風：ノコギリ波＋1オクターブ下＋上の倍音・長めの余韻
+        mk(f, 'sawtooth', vol * 0.5, d * 1.5);
+        mk(f / 2, 'sine', vol * 0.6, d * 1.5);
+        mk(f * 2, 'sawtooth', vol * 0.14, d * 1.2);
+      } else if (theme === 'synth') {
+        // スーパーソウ風：デチューン2枚＋サブベース
+        mk(f, 'sawtooth', vol * 0.45, d, -9);
+        mk(f, 'sawtooth', vol * 0.45, d, 9);
+        mk(f / 2, 'sine', vol * 0.5, d);
+      } else {
+        mk(f, type, vol, d, 0); // 8bit（矩形波そのまま）
+      }
       t += d * 0.85;
     }
   } catch (e) {}
