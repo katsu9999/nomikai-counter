@@ -44,13 +44,31 @@
   }
   .half { font-size: 15px; color: var(--sub); vertical-align: middle; }
   .hint { font-size: 13px; color: var(--sub); margin: -6px 0 12px; }
-  .ranking { display: flex; gap: 16px; flex-wrap: wrap; font-size: 16px; margin-bottom: 12px; align-items: center; }
+  .ranking {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 16px; margin-bottom: 14px;
+  }
   .ranking:empty { display: none; }
-  .ranking b { color: var(--amber); }
-  .ranking .g { font-size: 13px; color: var(--sub); }
+  .rankHead { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 15px; color: var(--amber); font-weight: bold; }
+  .rankRow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
+  .rMedal { width: 34px; text-align: center; }
+  .rName { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 32%; }
+  .rBarWrap { flex: 1; background: var(--line); border-radius: 7px; overflow: hidden; }
+  .rBar { background: var(--amber); border-radius: 7px; transition: width .3s; }
+  .rVal { font-size: 13px; color: var(--sub); white-space: nowrap; }
+  .r0 .rMedal { font-size: 30px; }
+  .r0 .rName { font-size: 26px; font-weight: bold; color: var(--amber); }
+  .r0 .rBar { height: 18px; background: linear-gradient(90deg, var(--amber), #f0b840); }
+  .r0 .rVal { font-size: 16px; font-weight: bold; color: var(--text); }
+  .r1 .rMedal { font-size: 21px; }
+  .r1 .rName { font-size: 18px; }
+  .r1 .rBar { height: 12px; }
+  .r2 .rMedal { font-size: 17px; }
+  .r2 .rName { font-size: 15px; color: var(--sub); }
+  .r2 .rBar { height: 8px; background: var(--amber-dim); }
   .eqToggle {
     border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px;
-    font-size: 13px; color: var(--sub); cursor: pointer; background: var(--card);
+    font-size: 13px; color: var(--sub); cursor: pointer; background: var(--bg); font-weight: normal;
   }
   .person:active { background: var(--card-tap); transform: scale(0.97); }
   .person .name { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
@@ -440,8 +458,17 @@ function render() {
   const ranked = S().people.map(n => ({ n, g: alcGFor(n) }))
     .filter(p => p.g > 0).sort((a, b) => b.g - a.g).slice(0, 3);
   document.getElementById('ranking').innerHTML = ranked.length
-    ? `<span class="eqToggle" onclick="cycleEq()">${EQ_UNITS[eqUnit()][0]}${getMl(eqUnit())}ml換算 ⇄</span>` +
-      ranked.map((p, i) => `<span>${medals[i]} <b>${p.n}</b> <span class="g">${eqLabel(p.g)}</span></span>`).join('')
+    ? `<div class="rankHead"><span>🏆 摂取量ランキング</span>
+         <span class="eqToggle" onclick="cycleEq()">${EQ_UNITS[eqUnit()][0]}${getMl(eqUnit())}ml換算 ⇄</span></div>` +
+      ranked.map((p, i) => {
+        const pct = Math.max(5, p.g / ranked[0].g * 100);
+        return `<div class="rankRow r${i}">
+          <span class="rMedal">${medals[i]}</span>
+          <span class="rName">${p.n}</span>
+          <div class="rBarWrap"><div class="rBar" style="width:${pct}%"></div></div>
+          <span class="rVal">${eqLabel(p.g)}</span>
+        </div>`;
+      }).join('')
     : '';
 
   // 参加者カード
