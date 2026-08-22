@@ -119,6 +119,7 @@
   .person .kcal { margin-top: 4px; font-size: 13px; color: var(--amber); }
   .person .alc { margin-top: 8px; font-size: 13px; }
   .person .aquaLine { margin-top: 4px; font-size: 13px; color: #7ec4e8; font-weight: bold; }
+  .person .luckLine { margin-top: 4px; font-size: 13px; color: #d99a2b; }
   .alc.t1 { color: var(--sub); }
   .alc.t2 { color: var(--amber); }
   .alc.t3 { color: #e0762e; font-weight: bold; }
@@ -527,7 +528,7 @@ function load() {
   return s;
 }
 function newSession() {
-  return { date: new Date().toISOString(), people: [], events: [], comments: [] };
+  return { date: new Date().toISOString(), people: [], events: [], comments: [], fortunes: [] };
 }
 function save() { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }
 const S = () => store.current;
@@ -726,6 +727,8 @@ function omikuji(name) {
     ov.querySelector('.omMsg').textContent = msg;
     ov.querySelector('.omMsg').classList.add('show');
     SFX.champ(); if (!isKyo) confetti(30);
+    (S().fortunes || (S().fortunes = [])).push({ t: Date.now(), person: name, label });
+    save(); render();
   }, 2500);
   setTimeout(() => ov.remove(), 5200);
 }
@@ -1163,6 +1166,14 @@ function render() {
         const wt = { ja: ['', '💧いいケア！', '🛡️鉄壁ディフェンス！', '🏆リカバリーの神！'], en: ['', '💧Good care!', '🛡️Iron defense!', '🏆Recovery god!'] }[lang()][lv];
         const sober = alcG === 0 ? (lang() === 'ja' ? '　🏅ソバーヒーロー！すごい！' : ' 🏅Sober hero!') : '';
         return `<div class="aquaLine">💧${fmtN(wTaps)}${T('cupsUnit')}　${wt}${sober}</div>`;
+      })()}
+      ${(() => {
+        const fs = (S().fortunes || []).filter(f => f.person === name);
+        if (!fs.length) return '';
+        const mega = fs.filter(f => f.label.includes('大大吉') || f.label.includes('MEGA')).length;
+        const dai = fs.filter(f => (f.label.includes('大吉') && !f.label.includes('大大吉')) || f.label.includes('GREAT')).length;
+        const jaL = lang() === 'ja';
+        return `<div class="luckLine">🎋${jaL ? 'おみくじ' : 'fortunes ×'}${fs.length}${jaL ? '回' : ''}${dai ? `・🎉${jaL ? '大吉' : 'GREAT'}×${dai}` : ''}${mega ? `・🌸×${mega}` : ''}</div>`;
       })()}
       <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}</div>
     </div>`;
