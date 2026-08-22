@@ -212,6 +212,9 @@
     100% { transform: translate(-50%, -50%) scale(1.08) rotate(-3deg); opacity: 0; }
   }
   .cutIcon { position: absolute; top: 66%; left: 50%; transform: translateX(-50%); font-size: 96px; animation: crackerPop 1.4s ease-out forwards; }
+  .eventCut { animation-duration: 2.8s; }
+  .eventCut .cutText { animation-duration: 2.8s; color: #ffe08a; }
+  .eventCut .cutIcon { animation-duration: 2.8s; font-size: 120px; }
   .hype {
     position: fixed; z-index: 97; font-weight: 900; font-size: 38px; color: var(--amber);
     text-shadow: 0 2px 12px rgba(0,0,0,.6); pointer-events: none; white-space: nowrap;
@@ -649,8 +652,45 @@ function top3Names() {
     .sort((a, b) => b.g - a.g).slice(0, 3).map(p => p.n);
 }
 
+// ---- わちゃわちゃイベント（ランダム発動＋放置催促） ----
+const PARTY_EVENTS = {
+  ja: [['🍻', '一斉カンパイターイム！！'], ['🎲', 'ラッキータイム！今飲むと運気UP！'], ['💧', 'ウォーターブレイク！全員水を飲め！'], ['🎾', 'サドンデス！ここで一杯決めろ！'], ['👑', '王座争奪戦ラウンド開始！！']],
+  en: [['🍻', 'GROUP KANPAI TIME!!'], ['🎲', 'LUCKY TIME! Drink now for good luck!'], ['💧', 'WATER BREAK! Everyone hydrate!'], ['🎾', 'SUDDEN DEATH! Land one now!'], ['👑', 'BATTLE FOR THE THRONE!!']],
+};
+const IDLE_EVENTS = {
+  ja: [['🍻', 'みんな飲んでる〜！？'], ['😪', '手が止まってるぞ！？'], ['🥂', 'グラス空いてない？次いこ次！'], ['⏰', '3分間タップなし！飲み係どこ！？']],
+  en: [['🍻', 'Everyone still drinking?!'], ['😪', 'Hands are idle?!'], ['🥂', 'Empty glasses? Next round!'], ['⏰', '3 min without a tap!?']],
+};
+let lastTap = Date.now();
+function partyEvent(idle) {
+  const list = (idle ? IDLE_EVENTS : PARTY_EVENTS)[lang()];
+  const [icon, text] = list[Math.floor(Math.random() * list.length)];
+  const ov = document.createElement('div');
+  ov.className = 'cut eventCut';
+  ov.innerHTML = `<div class="cutBall">🎾</div><div class="cutText">${text}</div><div class="cutIcon">${icon}</div>`;
+  document.body.appendChild(ov);
+  setTimeout(() => ov.remove(), 2800);
+  SFX.close(); confetti(30);
+  document.body.classList.remove('shake');
+  void document.body.offsetWidth;
+  document.body.classList.add('shake');
+}
+// 放置チェック：会の最中に3分タップがなければ催促
+setInterval(() => {
+  if (!S().events.length) return;
+  if ((Date.now() - lastTap) >= 180000) { partyEvent(true); lastTap = Date.now(); }
+}, 20000);
+// ランダムイベント：4〜8分ごと
+(function scheduleEvent() {
+  setTimeout(() => {
+    if (S().events.length) partyEvent(false);
+    scheduleEvent();
+  }, (4 + Math.random() * 4) * 60000);
+})();
+
 // ---- タップ（1杯）／長押し（半杯） ----
 function tap(name, ev, amt = 1) {
+  lastTap = Date.now();
   const gBefore = alcGFor(name);
   const topBefore = top3Names();
   playSound(currentDrink);
