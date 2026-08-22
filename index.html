@@ -44,7 +44,8 @@
   .person:active { background: var(--card-tap); transform: scale(0.97); }
   .person .name { font-size: 22px; font-weight: bold; margin-bottom: 6px; }
   .person .count { font-size: 44px; font-weight: bold; color: var(--amber); line-height: 1.1; }
-  .person .unit { font-size: 13px; color: var(--sub); }
+  .person .count .cupsUnit { font-size: 17px; color: var(--sub); margin-left: 4px; font-weight: normal; }
+  .person .gN { font-size: 13px; color: var(--sub); }
   .person .detail { font-size: 13px; color: var(--sub); margin-top: 6px; }
   .person .glasses { margin-top: 8px; font-size: 21px; line-height: 1.35; word-break: break-all; min-height: 28px; }
   .person .kcal { margin-top: 4px; font-size: 13px; color: var(--amber); }
@@ -385,13 +386,13 @@ function render() {
   const grid = document.getElementById('grid');
   grid.innerHTML = S().people.map(name => {
     const st = statsFor(S(), name);
-    const cur = st[currentDrink] || { taps: 0, ml: 0, cups: 0 };
+    const totalTaps = Object.values(st).reduce((a, v) => a + v.taps, 0);
     const glasses = Object.entries(st).map(([k, v]) =>
-      `<div>${v.taps <= 12 ? DRINKS[k].icon.repeat(v.taps) : DRINKS[k].icon.repeat(12) + `+${v.taps - 12}`}</div>`
+      `<div>${v.taps <= 12 ? DRINKS[k].icon.repeat(v.taps) : DRINKS[k].icon.repeat(12) + '…'}<span class="gN"> ${v.taps}杯</span></div>`
     ).join('');
     const kcal = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('kcal100_' + k) / 100, 0));
     const rounds = kcal / getMl('tennisRoundKcal');
-    const tennis = `${rounds.toFixed(1)}ラウンド（約${(rounds / 6).toFixed(1)}回）`;
+    const tennis = `${rounds.toFixed(1)}R（約${(rounds / 6).toFixed(1)}回）`;
     const totalMl = Object.values(st).reduce((a, v) => a + v.ml, 0);
     const alcG = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('abv_' + k) / 100 * 0.8, 0));
     let tier = 't1', mood = '😀 いい感じ';
@@ -401,11 +402,10 @@ function render() {
     return `<div class="person" onclick="tap('${name.replace(/'/g, "\\'")}', event)">
       <div class="del" onclick="removePerson('${name.replace(/'/g, "\\'")}', event)">✕</div>
       <div class="name">${name}</div>
-      <div class="count">${cur.taps}</div>
-      <div class="unit">${d.tapName}（${d.icon} 約${cur.ml}ml ≒ ${cur.cups.toFixed(1)}${d.cupName}）</div>
+      <div class="count">${totalTaps}<span class="cupsUnit">杯</span></div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
-      <div class="alc ${tier}">🍶 計${totalMl}ml・純アル ${alcG}g　${mood}</div>
-      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 テニス${tennis}分</div>
+      <div class="alc ${tier}">🍶 ${totalMl}ml・純アル${alcG}g　${mood}</div>
+      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}分</div>
     </div>`;
   }).join('') + `<div class="addCard" onclick="addPerson()">＋ 参加者を追加</div>`;
 
