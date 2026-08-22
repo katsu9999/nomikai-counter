@@ -624,6 +624,7 @@ const SETTING_ROWS = [
   ['kcal100_sake', '🍶', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
   ['tennisRoundKcal', '🎾', { ja: '1ラウンド(20分)の消費', en: 'kcal per round (20min)' }, 'kcal'],
   ['runKcalKm', '🏃', { ja: 'ラン1kmの消費', en: 'kcal per km run' }, 'kcal'],
+  ['stepKcal1000', '🚶', { ja: '1000歩の消費', en: 'kcal per 1000 steps' }, 'kcal'],
   ['abv_whisky', '🥃', { ja: '度数', en: 'ABV' }, '%'],
   ['abv_wine', '🍷', { ja: '度数', en: 'ABV' }, '%'],
   ['abv_beer', '🍺', { ja: '度数', en: 'ABV' }, '%'],
@@ -693,6 +694,7 @@ const DEFAULT_SETTINGS = {
   // GGテニス=2hで6ラウンド想定。1ラウンド(約20分ダブルス)≒100kcal
   kcal100_whisky: 237, kcal100_wine: 83, kcal100_beer: 42, kcal100_cocktail: 100, kcal100_sake: 103, tennisRoundKcal: 100,
   runKcalKm: 65, // ラン1kmの消費kcal（体重65kg前後の目安）
+  stepKcal1000: 30, // ウォーキング1000歩の消費kcal
   // アルコール度数（%）。純アルコールg = ml × 度数/100 × 0.8
   // カクテル=スプリッツ想定：スパークリングワイン⅓+カンパリ⅓+炭酸水⅓ ≒ 12%（アペロールなら約7%）
   abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, abv_cocktail: 12, abv_sake: 15, // ブラックニッカ クリア=37%・日本酒1合180ml/15%
@@ -1878,7 +1880,7 @@ function render() {
         const jaL = lang() === 'ja';
         return `<div class="luckLine">🎋${jaL ? 'おみくじ' : 'fortunes ×'}${fs.length}${jaL ? '回' : ''}${dai ? `・🎉${jaL ? '大吉' : 'GREAT'}×${dai}` : ''}${mega ? `・🌸×${mega}` : ''}</div>`;
       })()}
-      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}・🏃 ${(kcal / getMl('runKcalKm')).toFixed(1)}km</div>
+      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}・🏃 ${(kcal / getMl('runKcalKm')).toFixed(1)}km・🚶 ${Math.round(kcal / getMl('stepKcal1000') * 1000).toLocaleString()}${lang() === 'ja' ? '歩' : ' steps'}</div>
     </div>`;
   }).join('') + `<div class="addCard" onclick="addPerson()">${T('addCard')}</div>`;
 
