@@ -118,6 +118,7 @@
   .person .glasses { margin-top: 8px; font-size: 21px; line-height: 1.35; word-break: break-all; min-height: 28px; }
   .person .kcal { margin-top: 4px; font-size: 13px; color: var(--amber); }
   .person .alc { margin-top: 8px; font-size: 13px; }
+  .person .aquaLine { margin-top: 4px; font-size: 13px; color: #7ec4e8; font-weight: bold; }
   .alc.t1 { color: var(--sub); }
   .alc.t2 { color: var(--amber); }
   .alc.t3 { color: #e0762e; font-weight: bold; }
@@ -126,6 +127,7 @@
     position: absolute; top: 8px; right: 10px; color: var(--sub); font-size: 14px;
     padding: 4px 8px; opacity: .5;
   }
+  .person .del.edit { right: auto; left: 10px; }
   .addCard {
     border: 2px dashed var(--line); border-radius: 16px; display: flex; align-items: center;
     justify-content: center; font-size: 17px; color: var(--sub); padding: 18px; cursor: pointer; min-height: 130px;
@@ -377,6 +379,7 @@ const L = {
   hydrated: { ja: '（💧効いてる）', en: ' (💧hydrated!)' },
   drinkWater: { ja: '　💧水も飲め！', en: ' 💧Drink water!' },
   namePrompt: { ja: '名前は？', en: 'Name?' },
+  renamePrompt: { ja: '新しい名前は？', en: 'New name?' },
   dupName: { ja: '同じ名前がいます', en: 'That name already exists' },
   noRecords: { ja: 'まだ記録がありません', en: 'Nothing recorded yet' },
   endConfirm: { ja: '今日の会を締めて履歴に保存する？', en: 'End tonight\'s session and save to history?' },
@@ -826,6 +829,15 @@ function addPerson() {
   if (S().people.includes(name)) { alert(T('dupName')); return; }
   S().people.push(name); SFX.add(); save(); render();
 }
+function renamePerson(oldName, ev) {
+  ev.stopPropagation();
+  const newName = (prompt(T('renamePrompt'), oldName) || '').trim();
+  if (!newName || newName === oldName) return;
+  if (S().people.includes(newName)) { alert(T('dupName')); return; }
+  S().people = S().people.map(p => p === oldName ? newName : p);
+  S().events.forEach(e => { if (e.person === oldName) e.person = newName; });
+  SFX.click(); save(); render();
+}
 function removePerson(name, ev) {
   ev.stopPropagation();
   if (!confirm(Lf.removeConfirm(name))) return;
@@ -1048,10 +1060,19 @@ function render() {
     return `<div class="person ${cardCls}" onclick="cardClick('${esc}', event)"
       onpointerdown="pressStart('${esc}', event)" onpointerup="pressEnd()" onpointerleave="pressEnd()">
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
+      <div class="del edit" onclick="renamePerson('${esc}', event)">✎</div>
       <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${aquaHero === name ? '💧' : ''}${name}</div>
       <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">${T('cupsUnit')}</span></div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
       <div class="alc ${tier}">🍶 ${Math.round(alcMl)}ml＝${eqLabel(alcG)}・💧${Math.round(waterMl)}ml　${mood}</div>
+      ${(() => {
+        const wTaps = st.water ? st.water.taps : 0;
+        if (!wTaps) return '';
+        const lv = wTaps >= 6 ? 3 : wTaps >= 3 ? 2 : 1;
+        const wt = { ja: ['', '💧いいケア！', '🛡️鉄壁ディフェンス！', '🏆リカバリーの神！'], en: ['', '💧Good care!', '🛡️Iron defense!', '🏆Recovery god!'] }[lang()][lv];
+        const sober = alcG === 0 ? (lang() === 'ja' ? '　🏅ソバーヒーロー！すごい！' : ' 🏅Sober hero!') : '';
+        return `<div class="aquaLine">💧${fmtN(wTaps)}${T('cupsUnit')}　${wt}${sober}</div>`;
+      })()}
       <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}</div>
     </div>`;
   }).join('') + `<div class="addCard" onclick="addPerson()">${T('addCard')}</div>`;
