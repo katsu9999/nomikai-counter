@@ -71,7 +71,14 @@
   }
   .trash:empty { display: none; }
   .trash .tTitle { color: var(--amber); font-weight: bold; font-size: 14px; }
-  .trash .pile { font-size: 21px; word-break: break-all; }
+  .trash .pile { font-size: 22px; word-break: break-all; }
+  .trash .pile span { display: inline-block; }
+  .trash .cCan { transform: scaleY(.6) rotate(-11deg); filter: saturate(.75) brightness(.85); }
+  .trash .pile span:nth-child(even).cCan { transform: scaleY(.62) rotate(10deg); }
+  .trash .cBottle { transform: rotate(102deg); filter: brightness(.85); }
+  .trash .pile span:nth-child(even).cBottle { transform: rotate(78deg) scaleY(.95); }
+  .trash .cPet { transform: rotate(-16deg); opacity: .85; }
+  .trash .pile span:nth-child(even).cPet { transform: rotate(15deg) scaleY(.9); }
   .trash .tN { color: var(--sub); font-size: 13px; margin-left: -8px; }
   .rankRow { display: flex; align-items: center; gap: 10px; margin: 8px 0; }
   .rMedal { width: 34px; text-align: center; }
@@ -397,6 +404,7 @@ const SETTING_ROWS = [
   ['water', '💧', { ja: '1杯', en: 'per glass' }, 'ml'],
   ['bottle', '🥃', { ja: 'ボトル容量', en: 'bottle size' }, 'ml'],
   ['wineBottle', '🍾', { ja: 'ワインボトル容量', en: 'wine bottle size' }, 'ml'],
+  ['waterPet', '🧴', { ja: 'ペットボトル容量', en: 'PET bottle size' }, 'ml'],
   ['kcal100_whisky', '🥃', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
   ['kcal100_wine', '🍷', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
   ['kcal100_beer', '🍺', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
@@ -439,6 +447,7 @@ const DEFAULT_SETTINGS = {
   kcal100_water: 0, abv_water: 0, // チェイサーはノーカン
   burnGh: 5, // 肝臓のアルコール分解速度（g/時）。「🕐◯時に抜ける」の根拠
   wineBottle: 750, // ゴミ山のワインボトル換算
+  waterPet: 500, // ゴミ山のペットボトル換算
 };
 const getMl = k => (store.settings && store.settings[k]) || DEFAULT_SETTINGS[k];
 const cupMlOf = k => DRINKS[k].cupMl || getMl(k);
@@ -889,17 +898,24 @@ function render() {
 
   // 🗑️ ゴミ山（全員合計の空き缶・空きボトル）
   const sumTaps = k => S().events.filter(e => e.drink === k).reduce((a, e) => a + (e.amt || 1), 0);
-  const pile = (icon, n) => { const w = Math.floor(n); return icon.repeat(Math.min(w, 12)) + (w > 12 ? `+${w - 12}` : ''); };
+  // 空き容器の山：潰れた缶🥫・転がった瓶🍾・ペットボトル🧴
+  const pile = (icon, n, cls) => {
+    const w = Math.floor(n);
+    return Array.from({ length: Math.min(w, 12) }, () => `<span class="${cls}">${icon}</span>`).join('')
+      + (w > 12 ? `+${w - 12}` : '');
+  };
   const ja = lang() === 'ja';
   const beerN = sumTaps('beer');
   const wineBot = sumTaps('wine') * getMl('wine') / getMl('wineBottle');
   const cockN = sumTaps('cocktail');
+  const petN = sumTaps('water') * getMl('water') / getMl('waterPet');
   const whiskyBot = whiskyUsedMl(S()) / getMl('bottle');
   const tParts = [];
-  if (beerN) tParts.push(`<span class="pile">${pile('🍺', beerN) || '🍺'}</span><span class="tN">${fmtN(beerN)}${ja ? '缶' : ' cans'}</span>`);
-  if (wineBot > 0) tParts.push(`<span class="pile">${pile('🍾', wineBot) || '🍷'}</span><span class="tN">${wineBot.toFixed(1)}${ja ? '本' : ' bottles'}</span>`);
-  if (cockN) tParts.push(`<span class="pile">${pile('🍹', cockN) || '🍹'}</span><span class="tN">${fmtN(cockN)}${ja ? '杯' : ' glasses'}</span>`);
-  if (whiskyBot > 0) tParts.push(`<span class="pile">🥃</span><span class="tN">${ja ? 'ボトル' : 'bottle'} ${whiskyBot.toFixed(2)}${ja ? '本' : ''}</span>`);
+  if (beerN) tParts.push(`<span class="pile">${pile('🥫', beerN, 'cCan') || '<span class="cCan">🥫</span>'}</span><span class="tN">${fmtN(beerN)}${ja ? '缶' : ' cans'}</span>`);
+  if (wineBot > 0) tParts.push(`<span class="pile">${pile('🍾', wineBot, 'cBottle') || '🍷'}</span><span class="tN">${wineBot.toFixed(1)}${ja ? '本' : ' bottles'}</span>`);
+  if (cockN) tParts.push(`<span class="pile">${pile('🍹', cockN, '') || '🍹'}</span><span class="tN">${fmtN(cockN)}${ja ? '杯' : ' glasses'}</span>`);
+  if (petN > 0) tParts.push(`<span class="pile">${pile('🧴', petN, 'cPet') || '<span class="cPet">🧴</span>'}</span><span class="tN">${ja ? 'ペットボトル' : 'PET'} ${petN.toFixed(1)}${ja ? '本' : ''}</span>`);
+  if (whiskyBot > 0) tParts.push(`<span class="pile">🥃</span><span class="tN">${ja ? 'ニッカボトル' : 'Nikka bottle'} ${whiskyBot.toFixed(2)}${ja ? '本' : ''}</span>`);
   document.getElementById('trash').innerHTML = tParts.length
     ? `<span class="tTitle">${ja ? '🗑️ 本日のゴミ山' : '🗑️ Tonight\'s trash pile'}</span>` + tParts.join('')
     : '';
