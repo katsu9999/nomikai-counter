@@ -778,7 +778,7 @@ const SFX = {
   undo:  () => toneSeq([[500, 0.08], [330, 0.14]], 'sine', 0.2),
   add:   () => toneSeq([[523, 0.07], [659, 0.07], [784, 0.14]], 'triangle', 0.2),
   rank:  () => toneSeq([[880, 0.07], [880, 0.09]], 'square', 0.12, 0.35),          // 順位入替: テンテン
-  champ: () => toneSeq([[523, 0.09], [659, 0.09], [784, 0.09], [1047, 0.3]], 'square', 0.15, 0.35), // 首位交代: テッテレー
+  champ: () => toneSeq([[523, 0.07], [523, 0.07], [659, 0.07], [784, 0.07], [1047, 0.1], [784, 0.07], [1047, 0.35]], 'square', 0.16, 0.35), // 首位交代: 8bitテッテテレー！
   close: () => toneSeq([[784, 0.1], [659, 0.1], [523, 0.1], [659, 0.1], [1047, 0.35]], 'triangle', 0.2),
 };
 function showToast(text, cls = '') {
@@ -885,6 +885,35 @@ const CUT_TEXTS = {
   },
 };
 SFX.ace = () => toneSeq([[180, 0.05], [880, 0.07], [1320, 0.16]], 'square', 0.18, 0.1);
+// 🎮 スポーツ別ヒット音（矩形波＝ファミコン音源）
+function sportHit(drink) {
+  if (drink === 'water') { toneSeq([[1319, .08], [1760, .16]], 'sine', 0.14); return; } // 優しいチャイム
+  const s = sport();
+  if (s === 'baseball') {
+    // カキーン！（金属バット）
+    clap(0);
+    toneSeq([[1568, .03], [2093, .28]], 'square', 0.2);
+    toneSeq([[2200, .22]], 'square', 0.08, 0.03);
+  } else if (s === 'football') {
+    // ドッ！（キック）＋審判笛ピピッ
+    toneSeq([[90, .16]], 'square', 0.35);
+    toneSeq([[2093, .06], [1976, .06], [2093, .12]], 'sine', 0.11, 0.18);
+  } else {
+    // ポックン♪（ラケット打球）
+    toneSeq([[180, .04]], 'square', 0.3);
+    toneSeq([[880, .05], [1175, .09]], 'square', 0.15, 0.06);
+  }
+}
+// 🎮 ランダム8bitコイン音（タップの25%でおまけ）
+const CHIP_COINS = [
+  [[988, .06], [1319, .2]],
+  [[1319, .08], [1568, .08], [2093, .2]],
+  [[784, .06], [988, .06], [1175, .16]],
+  [[523, .06], [659, .06], [784, .06], [1047, .18]],
+];
+function chipBonus() {
+  toneSeq(CHIP_COINS[Math.floor(Math.random() * CHIP_COINS.length)], 'square', 0.15, 0.5);
+}
 // 拍手音（一本締め用）
 function clap(delay = 0) {
   try {
@@ -971,7 +1000,8 @@ function megaReaction(drink, name) {
     <div class="cutIcon">${DRINKS[drink].icon}</div>`;
   document.body.appendChild(ov);
   setTimeout(() => ov.remove(), 4600);
-  SFX.ace();
+  sportHit(drink); // 🎾ポックン／⚽ドッ+笛／⚾カキーン！
+  if (Math.random() < 0.25) chipBonus(); // たまに8bitコイン音
   toneSeq([[659, 0.09], [784, 0.09], [988, 0.22]], 'triangle', 0.15, 1.4); // サブテキストで追いファンファーレ
   // 煽りテキストも追加でランダム出現
   const pool = (HYPE[lang()][drink] || []).concat(HYPE_COMMON[lang()]);
