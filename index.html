@@ -122,14 +122,17 @@
   <div class="setRow">🥃 1プッシュ <input type="number" id="set_whisky" onchange="setMaster('whisky', this.value)"> ml</div>
   <div class="setRow">🍷 1杯 <input type="number" id="set_wine" onchange="setMaster('wine', this.value)"> ml</div>
   <div class="setRow">🍺 1杯 <input type="number" id="set_beer" onchange="setMaster('beer', this.value)"> ml</div>
+  <div class="setRow">🍹 1杯 <input type="number" id="set_cocktail" onchange="setMaster('cocktail', this.value)"> ml</div>
   <div class="setRow">🥃 ボトル容量 <input type="number" id="set_bottle" onchange="setMaster('bottle', this.value)"> ml</div>
   <div class="setRow">🥃 カロリー <input type="number" id="set_kcal100_whisky" onchange="setMaster('kcal100_whisky', this.value)"> kcal/100ml</div>
   <div class="setRow">🍷 カロリー <input type="number" id="set_kcal100_wine" onchange="setMaster('kcal100_wine', this.value)"> kcal/100ml</div>
   <div class="setRow">🍺 カロリー <input type="number" id="set_kcal100_beer" onchange="setMaster('kcal100_beer', this.value)"> kcal/100ml</div>
-  <div class="setRow">🎾 テニス1回の消費 <input type="number" id="set_tennisKcal" onchange="setMaster('tennisKcal', this.value)"> kcal</div>
+  <div class="setRow">🍹 カロリー <input type="number" id="set_kcal100_cocktail" onchange="setMaster('kcal100_cocktail', this.value)"> kcal/100ml</div>
+  <div class="setRow">🎾 1ラウンド(20分)の消費 <input type="number" id="set_tennisRoundKcal" onchange="setMaster('tennisRoundKcal', this.value)"> kcal</div>
   <div class="setRow">🥃 度数 <input type="number" step="0.5" id="set_abv_whisky" onchange="setMaster('abv_whisky', this.value)"> %</div>
   <div class="setRow">🍷 度数 <input type="number" step="0.5" id="set_abv_wine" onchange="setMaster('abv_wine', this.value)"> %</div>
   <div class="setRow">🍺 度数 <input type="number" step="0.5" id="set_abv_beer" onchange="setMaster('abv_beer', this.value)"> %</div>
+  <div class="setRow">🍹 度数 <input type="number" step="0.5" id="set_abv_cocktail" onchange="setMaster('abv_cocktail', this.value)"> %（カンパリ⅓=12・アペロール⅓=7目安）</div>
 </section>
 
 <section id="commentSec" class="hidden">
@@ -158,14 +161,17 @@ const DRINKS = {
   whisky: { icon: '🥃', label: 'ウイスキー', tapName: 'プッシュ', cupMl: 30,   cupName: 'シングル' },
   wine:   { icon: '🍷', label: 'ワイン',     tapName: '杯',       cupMl: null, cupName: '杯' },
   beer:   { icon: '🍺', label: 'ビール',     tapName: '杯',       cupMl: null, cupName: '杯' },
+  cocktail: { icon: '🍹', label: 'カクテル', tapName: '杯',       cupMl: null, cupName: '杯' },
 };
 // マスタ設定（⚙️設定から変更可・localStorageに保存される）
 const DEFAULT_SETTINGS = {
-  whisky: 25, wine: 175, beer: 350, bottle: 2700,
+  whisky: 25, wine: 175, beer: 350, cocktail: 200, bottle: 2700,
   // カロリー係数（kcal/100ml）とテニス1回（2hダブルス想定）の消費kcal
-  kcal100_whisky: 237, kcal100_wine: 83, kcal100_beer: 42, tennisKcal: 600,
+  // GGテニス=2hで6ラウンド想定。1ラウンド(約20分ダブルス)≒100kcal
+  kcal100_whisky: 237, kcal100_wine: 83, kcal100_beer: 42, kcal100_cocktail: 100, tennisRoundKcal: 100,
   // アルコール度数（%）。純アルコールg = ml × 度数/100 × 0.8
-  abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, // ブラックニッカ クリア=37%
+  // カクテル=スプリッツ想定：スパークリングワイン⅓+カンパリ⅓+炭酸水⅓ ≒ 12%（アペロールなら約7%）
+  abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, abv_cocktail: 12, // ブラックニッカ クリア=37%
 };
 const getMl = k => (store.settings && store.settings[k]) || DEFAULT_SETTINGS[k];
 const cupMlOf = k => DRINKS[k].cupMl || getMl(k);
@@ -230,9 +236,10 @@ function playSound(kind) {
       const foam = noise(t0 + 0.3, 1.0, 'bandpass', 4500, 0.4);
       foam.frequency.setValueAtTime(5500, t0 + 0.3);
       foam.frequency.exponentialRampToValueAtTime(2200, t0 + 1.3);
-    } else if (kind === 'wine') {
-      // トゥクトゥクトゥク（注ぐ音）
+    } else if (kind === 'wine' || kind === 'cocktail') {
+      // トゥクトゥクトゥク（注ぐ音）。カクテルは炭酸のシュワも足す
       [0, 0.14, 0.28, 0.42].forEach((dt, i) => glug(t0 + dt, 480 + i * 60, 240, 0.12, 0.35));
+      if (kind === 'cocktail') noise(t0 + 0.5, 0.6, 'bandpass', 5000, 0.25);
     } else {
       // ウイスキー：ポンプのシュコッ（プッシュ感）＋トポッ
       noise(t0, 0.09, 'bandpass', 1200, 0.7);
@@ -383,7 +390,8 @@ function render() {
       `<div>${v.taps <= 12 ? DRINKS[k].icon.repeat(v.taps) : DRINKS[k].icon.repeat(12) + `+${v.taps - 12}`}</div>`
     ).join('');
     const kcal = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('kcal100_' + k) / 100, 0));
-    const tennis = (kcal / getMl('tennisKcal')).toFixed(1);
+    const rounds = kcal / getMl('tennisRoundKcal');
+    const tennis = `${rounds.toFixed(1)}ラウンド（約${(rounds / 6).toFixed(1)}回）`;
     const totalMl = Object.values(st).reduce((a, v) => a + v.ml, 0);
     const alcG = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('abv_' + k) / 100 * 0.8, 0));
     let tier = 't1', mood = '😀 いい感じ';
@@ -397,7 +405,7 @@ function render() {
       <div class="unit">${d.tapName}（${d.icon} 約${cur.ml}ml ≒ ${cur.cups.toFixed(1)}${d.cupName}）</div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
       <div class="alc ${tier}">🍶 計${totalMl}ml・純アル ${alcG}g　${mood}</div>
-      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 テニス${tennis}回分</div>
+      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 テニス${tennis}分</div>
     </div>`;
   }).join('') + `<div class="addCard" onclick="addPerson()">＋ 参加者を追加</div>`;
 
