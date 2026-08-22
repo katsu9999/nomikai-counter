@@ -366,6 +366,9 @@
   .wbCount { font-size: min(160px, 26vw); font-weight: 900; color: #fff; text-shadow: 0 0 44px #7ec4e8; animation: wbPulse .5s ease-in-out infinite alternate; }
   @keyframes wbPulse { from { transform: scale(1); } to { transform: scale(1.12); } }
   .wbChant { font-size: min(36px, 5.5vw); font-weight: 900; color: #ffe08a; min-height: 1.4em; text-shadow: 0 2px 10px rgba(0,0,0,.8); }
+  .kanpaiBreak { background: linear-gradient(180deg, rgba(58, 34, 6, .97), rgba(122, 78, 16, .97)); }
+  .kanpaiBreak .wbTitle { color: #ffe08a; text-shadow: 0 0 26px var(--amber); }
+  .kanpaiBreak .wbCount { text-shadow: 0 0 44px var(--amber); }
   .championCut .champCrown { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: min(110px, 16vw); animation: crownBounce 1s ease-in-out infinite; }
   .champOld {
     position: absolute; top: 72%; left: 50%; transform: translate(-50%, -50%);
@@ -484,6 +487,10 @@
   <button id="btnHistory" onclick="SFX.click();toggle('historySec'); renderHistory()">📜 過去の会</button>
   <button id="btnCompact" onclick="toggleCompact()">🗜️ コンパクト</button>
   <button id="btnQr" onclick="openQr()">📱 QR参加</button>
+  <button id="btnWater" onclick="SFX.click();waterBreak()">💧 水飲みタイム</button>
+  <button id="btnKanpai" onclick="SFX.click();kanpaiTime()">🍻 乾杯</button>
+  <button id="btnJime1" onclick="SFX.click();ipponJime(1)">👏 一本締め</button>
+  <button id="btnJime3" onclick="SFX.click();ipponJime(3)">👏 三本締め</button>
   <button id="btnSettings" onclick="SFX.click();toggle('settingsSec')">⚙️ 設定</button>
   <button class="warn" id="btnEnd" onclick="endSession()">🏁 今日の会を締める</button>
 </div>
@@ -574,6 +581,10 @@ const L = {
   savedNew: { ja: '保存しました。新しい会を開始！', en: 'Saved! New session started.' },
   btnCompactOff: { ja: '🗜️ コンパクト', en: '🗜️ Compact' },
   btnCompactOn: { ja: '📖 詳細表示', en: '📖 Details' },
+  btnWater: { ja: '💧 水飲みタイム', en: '💧 Water time' },
+  btnKanpai: { ja: '🍻 乾杯', en: '🍻 Kanpai' },
+  btnJime1: { ja: '👏 一本締め', en: '👏 1x Clap' },
+  btnJime3: { ja: '👏 三本締め', en: '👏 3x Clap' },
   importConfirm: { ja: '今のデータを読み込んだ内容で置き換える？', en: 'Replace current data with the loaded file?' },
   importErr: { ja: 'JSONが読めませんでした', en: 'Could not read that JSON' },
 };
@@ -611,6 +622,7 @@ const SETTING_ROWS = [
   ['kcal100_cocktail', '🍹', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
   ['kcal100_sake', '🍶', { ja: 'カロリー', en: 'calories' }, 'kcal/100ml'],
   ['tennisRoundKcal', '🎾', { ja: '1ラウンド(20分)の消費', en: 'kcal per round (20min)' }, 'kcal'],
+  ['runKcalKm', '🏃', { ja: 'ラン1kmの消費', en: 'kcal per km run' }, 'kcal'],
   ['abv_whisky', '🥃', { ja: '度数', en: 'ABV' }, '%'],
   ['abv_wine', '🍷', { ja: '度数', en: 'ABV' }, '%'],
   ['abv_beer', '🍺', { ja: '度数', en: 'ABV' }, '%'],
@@ -636,7 +648,7 @@ function buildSettings() {
 }
 function applyStatic() {
   for (const id of ['appTitle', 'bottleLabel', 'hintBar', 'btnUndo', 'btnComment', 'btnHistory',
-    'btnSettings', 'btnEnd', 'commentTitle', 'btnAddComment',
+    'btnSettings', 'btnEnd', 'btnWater', 'btnKanpai', 'btnJime1', 'btnJime3', 'commentTitle', 'btnAddComment',
     'historyTitle', 'logTitle', 'settingsTitle']) {
     document.getElementById(id).textContent = T(id);
   }
@@ -678,6 +690,7 @@ const DEFAULT_SETTINGS = {
   // カロリー係数（kcal/100ml）とテニス1回（2hダブルス想定）の消費kcal
   // GGテニス=2hで6ラウンド想定。1ラウンド(約20分ダブルス)≒100kcal
   kcal100_whisky: 237, kcal100_wine: 83, kcal100_beer: 42, kcal100_cocktail: 100, kcal100_sake: 103, tennisRoundKcal: 100,
+  runKcalKm: 65, // ラン1kmの消費kcal（体重65kg前後の目安）
   // アルコール度数（%）。純アルコールg = ml × 度数/100 × 0.8
   // カクテル=スプリッツ想定：スパークリングワイン⅓+カンパリ⅓+炭酸水⅓ ≒ 12%（アペロールなら約7%）
   abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, abv_cocktail: 12, abv_sake: 15, // ブラックニッカ クリア=37%・日本酒1合180ml/15%
@@ -1133,19 +1146,24 @@ function miniFever() {
   }, 200);
   confetti(10);
 }
-// 💧 全員水飲みタイム（20秒の強制わいわい画面・25〜35分ごと）
-function waterBreak() {
+// 💧🍻 全員タイム（20秒の強制わいわい画面。水=自動+手動、乾杯=手動）
+function waterBreak(cfg) {
   if (GUEST_ROOM || document.querySelector('.waterBreak')) return;
   const ja = lang() === 'ja';
-  const chants = ja
-    ? ['水飲め！水飲め！', 'ゴクゴクゴク！', '肝臓が喜んでるぞ〜！', 'いいぞいいぞ！', '全員グラス持った！？', 'ラストスパート！']
-    : ['Drink! Drink!', 'Gulp gulp gulp!', 'Your liver says thanks!', 'Everyone got water!?', 'Final stretch!'];
+  const c = cfg || {
+    cls: '', emoji: '💧',
+    title: ja ? '全員 水飲みタイム！！' : 'EVERYONE — WATER TIME!!',
+    chants: ja
+      ? ['水飲め！水飲め！', 'ゴクゴクゴク！', '肝臓が喜んでるぞ〜！', 'いいぞいいぞ！', '全員グラス持った！？', 'ラストスパート！']
+      : ['Drink! Drink!', 'Gulp gulp gulp!', 'Your liver says thanks!', 'Everyone got water!?', 'Final stretch!'],
+    done: ja ? '🎉 よくできました！！' : '🎉 WELL DONE!!',
+  };
   const ov = document.createElement('div');
-  ov.className = 'waterBreak';
+  ov.className = 'waterBreak' + (c.cls ? ' ' + c.cls : '');
   ov.innerHTML = `
-    <div class="wbTitle">💧 ${ja ? '全員 水飲みタイム！！' : 'EVERYONE — WATER TIME!!'} 💧</div>
+    <div class="wbTitle">${c.emoji} ${c.title} ${c.emoji}</div>
     <div class="wbCount">20</div>
-    <div class="wbChant">${chants[0]}</div>
+    <div class="wbChant">${c.chants[0]}</div>
     <div class="finSkip">${ja ? 'タップでスキップ' : 'tap to skip'}</div>`;
   document.body.appendChild(ov);
   toneSeq([[523, .1], [659, .1], [784, .28]], 'triangle', 0.2);
@@ -1155,9 +1173,9 @@ function waterBreak() {
     sec--;
     ov.querySelector('.wbCount').textContent = sec;
     toneSeq([[sec % 2 ? 660 : 520, .06]], 'square', 0.12); // ビート
-    if (sec % 4 === 0) ov.querySelector('.wbChant').textContent = chants[Math.floor(Math.random() * chants.length)];
-    const dr = document.createElement('div'); // 💧の雨
-    dr.className = 'confetti'; dr.textContent = '💧';
+    if (sec % 4 === 0) ov.querySelector('.wbChant').textContent = c.chants[Math.floor(Math.random() * c.chants.length)];
+    const dr = document.createElement('div'); // 絵文字の雨
+    dr.className = 'confetti'; dr.textContent = c.emoji;
     dr.style.cssText += 'background:transparent;font-size:24px;width:auto;height:auto;';
     dr.style.left = Math.random() * 100 + 'vw';
     dr.style.animationDuration = (1.4 + Math.random()) + 's';
@@ -1165,13 +1183,71 @@ function waterBreak() {
     setTimeout(() => dr.remove(), 2600);
     if (sec <= 0) {
       clearInterval(iv);
-      ov.querySelector('.wbCount').textContent = '💧';
-      ov.querySelector('.wbChant').textContent = ja ? '🎉 よくできました！！' : '🎉 WELL DONE!!';
+      ov.querySelector('.wbCount').textContent = c.emoji;
+      ov.querySelector('.wbChant').textContent = c.done;
       SFX.close(); confetti(40);
       setTimeout(() => ov.remove(), 2500);
     }
   }, 1000);
   ov.addEventListener('click', () => { clearInterval(iv); ov.remove(); });
+}
+// 🍻 乾杯ターイム（手動ボタン）
+function kanpaiTime() {
+  const ja = lang() === 'ja';
+  waterBreak({
+    cls: 'kanpaiBreak', emoji: '🍻',
+    title: ja ? '全員 乾杯ターイム！！' : 'EVERYONE — KANPAI TIME!!',
+    chants: ja
+      ? ['カンパーイ！！', 'グラス上げろ〜！', '目を見て乾杯！', 'いい飲みっぷり！', '最高の夜！', '隣の人ともう一回！']
+      : ['CHEERS!!', 'Raise your glass!', 'Eye contact!', 'Best night ever!', 'One more with your neighbor!'],
+    done: ja ? '🍻 カンパーイ！！！' : '🍻 KANPAI!!!',
+  });
+}
+// 👏 一本締め／三本締め（いつでも発動・会は締めない）
+function ipponJime(rounds = 1) {
+  if (GUEST_ROOM || document.querySelector('.waterBreak')) return;
+  const ja = lang() === 'ja';
+  const ov = document.createElement('div');
+  ov.className = 'waterBreak kanpaiBreak';
+  ov.innerHTML = `
+    <div class="wbTitle">👏 ${ja ? (rounds === 3 ? '三本締め！！' : '一本締め！！') : 'CLOSING CLAP!!'}</div>
+    <div class="wbChant"></div>
+    <div class="finSkip">${ja ? 'タップでスキップ' : 'tap to skip'}</div>`;
+  document.body.appendChild(ov);
+  const timers = [];
+  const at = (ms, fn) => timers.push(setTimeout(fn, ms));
+  const jime = txt => { const el = ov.querySelector('.wbChant'); if (el) el.textContent = txt; };
+  const clapAt = (ms, big) => at(ms, () => {
+    clap(0);
+    const cp = document.createElement('div');
+    cp.className = 'clapPop'; cp.textContent = '👏';
+    cp.style.left = (28 + Math.random() * 44) + 'vw';
+    cp.style.top = (30 + Math.random() * 30) + 'vh';
+    if (big) cp.style.fontSize = '120px';
+    document.body.appendChild(cp);
+    setTimeout(() => cp.remove(), 550);
+  });
+  const papapan = ja ? 'パパパン！' : 'Clap-clap-clap!';
+  let t = 300;
+  at(t, () => jime(ja ? 'それでは皆さま、お手を拝借！' : 'Everyone, hands ready!'));
+  t += 2200;
+  at(t, () => { jime(ja ? 'よぉ〜〜〜っ！' : 'Yooo~~~!'); toneSeq([[392, .35], [523, .6]], 'triangle', .2); });
+  t += 1700;
+  for (let r = 0; r < rounds; r++) {
+    [0, 220, 440, 1100, 1320, 1540, 2200, 2420, 2640].forEach(d => clapAt(t + d));
+    at(t, () => jime(papapan));
+    at(t + 1100, () => jime(papapan + papapan));
+    at(t + 2200, () => jime(papapan + papapan + papapan));
+    clapAt(t + 3400, true);
+    at(t + 3400, () => jime(ja ? 'パン！！' : 'CLAP!!'));
+    t += 4300;
+  }
+  at(t, () => { jime(ja ? 'ありがとうございましたー！！🎉' : 'Thank you!! 🎉'); SFX.close(); confetti(50); });
+  t += 2800;
+  let done = false;
+  const finish = () => { if (done) return; done = true; timers.forEach(clearTimeout); ov.remove(); };
+  at(t, finish);
+  ov.addEventListener('click', finish);
 }
 (function scheduleWaterBreak() {
   setTimeout(() => {
@@ -1757,7 +1833,7 @@ function render() {
         const jaL = lang() === 'ja';
         return `<div class="luckLine">🎋${jaL ? 'おみくじ' : 'fortunes ×'}${fs.length}${jaL ? '回' : ''}${dai ? `・🎉${jaL ? '大吉' : 'GREAT'}×${dai}` : ''}${mega ? `・🌸×${mega}` : ''}</div>`;
       })()}
-      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}</div>
+      <div class="kcal">🔥 ${kcal}kcal ≒ 🎾 ${tennis}・🏃 ${(kcal / getMl('runKcalKm')).toFixed(1)}km</div>
     </div>`;
   }).join('') + `<div class="addCard" onclick="addPerson()">${T('addCard')}</div>`;
 
