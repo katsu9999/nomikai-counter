@@ -160,6 +160,10 @@
     animation: flyLeft linear forwards;
   }
   @keyframes flyLeft { to { transform: translateX(calc(-100vw - 100%)); } }
+  .danmaku.big {
+    font-size: min(54px, 7.5vw); color: #ffe08a;
+    text-shadow: 0 3px 12px rgba(0, 0, 0, .95), 0 0 26px var(--amber);
+  }
   /* ゲスト（スマホリモコン）画面 */
   .gWrap { max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; padding-top: 8px; }
   .gWrap input { padding: 13px; font-size: 17px; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); }
@@ -1583,9 +1587,9 @@ function renderHistory() {
 }
 
 // ---- 📱 リモート参加：QR・ポーリング・弾幕・ゲスト画面 ----
-function danmaku(text) {
+function danmaku(text, big) {
   const d = document.createElement('div');
-  d.className = 'danmaku'; d.textContent = text;
+  d.className = 'danmaku' + (big ? ' big' : ''); d.textContent = text;
   d.style.top = (8 + Math.random() * 55) + 'vh';
   d.style.animationDuration = (7 + Math.random() * 4) + 's';
   document.body.appendChild(d);
@@ -1635,7 +1639,7 @@ async function pollRemote() {
         tap(person, { clientX: innerWidth / 2, clientY: innerHeight * 0.35 }, row.amt || 1, row.drink);
         danmaku(`${DRINKS[row.drink].icon} ${person}`);
       } else if (row.kind === 'comment' && body) {
-        danmaku(`💬 ${person}: ${body}`);
+        danmaku(`💬 ${person}: ${body}`, true);
         S().comments.push({ t: Date.now(), text: `${person}: ${body}` });
         save(); render();
       }
@@ -1652,8 +1656,10 @@ function initGuest() {
       <h1 style="color:var(--amber);font-size:22px;text-align:center">🍻 GG グビロワイヤル 📱</h1>
       <div class="hint" style="text-align:center;margin:0">ルーム: ${(GUEST_ROOM || '').replace(/[<>"'`]/g, '')}　飲んだらタップ→iPadで実況！</div>
       <input id="gName" placeholder="なまえ / Name" value="${saved}">
+      <div class="hint" style="text-align:center;margin:0">タップ＝1杯　長押し＝半杯½</div>
       <div class="gGrid">${Object.keys(DRINKS).map(k =>
-        `<button class="gBtn" onclick="gDrink('${k}')">${DRINKS[k].icon}<span>${DRINKS[k].label} / ${DRINKS[k].en}</span></button>`).join('')}
+        `<button class="gBtn" onpointerdown="gPress('${k}')" onpointerup="gRelease()" onpointerleave="gRelease()"
+          onclick="gDrink('${k}')">${DRINKS[k].icon}<span>${DRINKS[k].label} / ${DRINKS[k].en}</span></button>`).join('')}
       </div>
       <div class="commentRow">
         <input id="gComment" placeholder="コメント → iPadに弾幕で流れる">
@@ -1675,10 +1681,20 @@ function gGetName() {
   if (n) try { localStorage.setItem('gubi-guest-name', n); } catch (e) {}
   return n;
 }
+let gTimer = null, gLong = false;
+function gPress(k) {
+  gLong = false;
+  gTimer = setTimeout(() => { gLong = true; gSendDrink(k, 0.5); }, 500);
+}
+function gRelease() { clearTimeout(gTimer); }
 function gDrink(k) {
+  if (gLong) { gLong = false; return; } // 長押し済みならclickは無視
+  gSendDrink(k, 1);
+}
+function gSendDrink(k, amt) {
   const n = gGetName(); if (!n) { alert('先に名前を入れてね'); return; }
   playSound(k);
-  gSend({ room: GUEST_ROOM, person: n, kind: 'drink', drink: k, amt: 1 });
+  gSend({ room: GUEST_ROOM, person: n, kind: 'drink', drink: k, amt });
 }
 function gComment() {
   const n = gGetName(); if (!n) { alert('先に名前を入れてね'); return; }
