@@ -355,6 +355,14 @@
   }
   .omMsg.show { opacity: 1; }
   .eventCut { animation-duration: 7.2s; }
+  .championCut { animation-duration: 10.5s; }
+  .championCut .champCrown { position: absolute; top: 20%; left: 50%; transform: translateX(-50%); font-size: min(110px, 16vw); animation: crownBounce 1s ease-in-out infinite; }
+  .champOld {
+    position: absolute; top: 72%; left: 50%; transform: translate(-50%, -50%);
+    font-size: min(26px, 4.5vw); font-weight: bold; color: #fff;
+    text-shadow: 0 2px 10px rgba(0,0,0,.9); white-space: nowrap;
+    animation: subIn 5s ease-out forwards;
+  }
   .eventCut .cutText { color: #ffe08a; }
   .eventCut .cutIcon { font-size: 120px; }
   .tapFlash {
@@ -1114,6 +1122,49 @@ function miniFever() {
   }, 200);
   confetti(10);
 }
+// 👑 王座交代セレモニー（約10秒の超盛大イベント）
+function championCeremony(newName, oldName) {
+  const ja = lang() === 'ja';
+  const ov = document.createElement('div');
+  ov.className = 'cut eventCut championCut';
+  // 第1幕：タメ
+  ov.innerHTML = `<div class="buildFlash"></div><div class="cutText buildMark">👑！？</div>`;
+  document.body.appendChild(ov);
+  buildUp(2.2);
+  let shakes = 0;
+  const iv = setInterval(() => {
+    document.body.classList.remove('shake');
+    void document.body.offsetWidth;
+    document.body.classList.add('shake');
+    if (++shakes > 9) clearInterval(iv);
+  }, 320);
+  // 第2幕：王座交代！！！
+  setTimeout(() => {
+    ov.innerHTML = `<div class="cutText">${ja ? '王座交代！！！' : 'NEW CHAMPION!!!'}</div>`;
+    crashSfx(); confetti(80); hanabi(6);
+  }, 2300);
+  // 第3幕：新王者発表＋👑の雨
+  setTimeout(() => {
+    clearInterval(iv);
+    ov.innerHTML = `
+      <div class="champCrown">👑</div>
+      <div class="cutText" style="top:48%">${newName}</div>
+      <div class="cutSub" style="top:60%">${ja ? '新王者！' : 'NEW KING!'}　${eqLabel(alcGFor(newName))}</div>
+      ${oldName ? `<div class="champOld">${ja ? `前王者 ${oldName} を撃破！！` : `Dethroned ${oldName}!!`}</div>` : ''}`;
+    SFX.champ(); confetti(60);
+    for (let i = 0; i < 6; i++) { // 👑の雨
+      const c = document.createElement('div');
+      c.className = 'cracker'; c.textContent = '👑';
+      c.style.left = (8 + Math.random() * 80) + '%';
+      c.style.top = (10 + Math.random() * 45) + '%';
+      c.style.animationDelay = (i * 0.3) + 's';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 2600);
+    }
+    setTimeout(() => { confetti(50); SFX.champ(); }, 1800);
+  }, 4600);
+  setTimeout(() => ov.remove(), 10300);
+}
 function partyEvent(idle) {
   const list = idle ? IDLE_EVENTS[lang()] : PARTY_EVENTS[sport()][lang()];
   let [icon, text] = list[Math.floor(Math.random() * list.length)];
@@ -1176,8 +1227,7 @@ function tap(name, ev, amt = 1, drink = 'whisky') {
   if (gBefore < 60 && gAfter >= 60) alertWarn(name, 4);
   else if (gBefore < 40 && gAfter >= 40) alertWarn(name, 3);
   else if (topAfter[0] && topAfter[0] !== topBefore[0]) {
-    SFX.champ(); confetti(50);
-    showToast(Lf.champToast(topAfter[0]), 'goldToast');
+    championCeremony(topAfter[0], topBefore[0]); // 👑 10秒の王座交代セレモニー
   }
   else if (topAfter.join() !== topBefore.join()) { SFX.rank(); confetti(14); }
   // 5杯ごとの節目祝福（チェイサー除く）
