@@ -417,6 +417,7 @@ const DRINKS = {
   cocktail: { icon: '🍹', label: 'カクテル', en: 'Cocktail', cupMl: null },
   sake:     { icon: '🍶', label: '日本酒',   en: 'Sake',     cupMl: null },
   water:    { icon: '💧', label: 'チェイサー', en: 'Chaser',  cupMl: null },
+  vibe:     { icon: '😆', label: 'いい感じ',   en: 'Vibes',   cupMl: null },
 };
 // ---- 日英辞書 ----
 const lang = () => (store.settings && store.settings.lang) || 'ja';
@@ -539,12 +540,14 @@ const DEFAULT_SETTINGS = {
   // カクテル=スプリッツ想定：スパークリングワイン⅓+カンパリ⅓+炭酸水⅓ ≒ 12%（アペロールなら約7%）
   abv_whisky: 37, abv_wine: 12.5, abv_beer: 5, abv_cocktail: 12, abv_sake: 15, // ブラックニッカ クリア=37%・日本酒1合180ml/15%
   kcal100_water: 0, abv_water: 0, // チェイサーはノーカン
+  vibe: 0, kcal100_vibe: 0, abv_vibe: 0, // いいね（😆）は完全ノーカン
   burnGh: 5, // 肝臓のアルコール分解速度（g/時）。「🕐◯時に抜ける」の根拠
   wineBottle: 750, // ゴミ山のワインボトル換算
   waterPet: 500, // ゴミ山のペットボトル換算
 };
 const getMl = k => (store.settings && store.settings[k]) || DEFAULT_SETTINGS[k];
-const cupMlOf = k => DRINKS[k].cupMl || getMl(k);
+const cupMlOf = k => DRINKS[k].cupMl || getMl(k) || 1;
+const isNoCount = k => k === 'water' || k === 'vibe'; // 杯数・酒量にカウントしない種別
 const KEY = 'nomikai-counter-v1';
 let store = load();
 let currentDrink = 'whisky';
@@ -609,6 +612,9 @@ function playSound(kind) {
     } else if (kind === 'water') {
       // 軽いコポコポ
       [0, 0.12].forEach(dt => glug(t0 + dt, 620, 320, 0.1, 0.25));
+    } else if (kind === 'vibe') {
+      // 拍手パチパチ
+      clap(0); clap(0.14); clap(0.28);
     } else if (kind === 'wine' || kind === 'cocktail' || kind === 'sake') {
       // トゥクトゥクトゥク（注ぐ音）。カクテルは炭酸のシュワも足す
       [0, 0.14, 0.28, 0.42].forEach((dt, i) => glug(t0 + dt, 480 + i * 60, 240, 0.12, 0.35));
@@ -707,6 +713,7 @@ const CUT_TEXTS = {
     cocktail: ['トリックショット！！', 'アンダーサーブ成功！！', 'スーパープレー！！'],
     sake: ['ジャパニーズスピン！！', '和のドライブ！！', 'サムライエース！！'],
     water: ['ナイスリカバリー！！', 'ナイスディフェンス！！', 'メディカルタイムアウト！', 'チェンジコート休憩！', 'ナイスセーブ！！', 'あなた最高！！', '神リカバリー！！', 'えらすぎる！！', '完璧なケア！！'],
+    vibe: ['ナイスバイブス！！', '会場沸いてる！！', 'スタンディングオベーション！！', 'ノリ最高！！', '観客大興奮！！', 'その笑顔がエース級！！'],
   },
   en: {
     common: ['SERVICE ACE!!', 'NICE VOLLEY!!', 'RETURN ACE!!', 'LOVE GAME!!', 'DEUCE! ONE MORE!', 'MATCH POINT!?', 'GRAND SLAM!!', 'TIEBREAK!!', 'WINNER!!', 'DOWN THE LINE!!', 'BREAK POINT!!', 'LET CORD! LUCKY!!', '40-LOVE!!'],
@@ -716,6 +723,7 @@ const CUT_TEXTS = {
     cocktail: ['TRICK SHOT!!', 'UNDERARM ACE!!', 'SUPER PLAY!!'],
     sake: ['JAPANESE SPIN!!', 'SAMURAI ACE!!', 'RISING SHOT!!'],
     water: ['NICE RECOVERY!!', 'NICE DEFENSE!!', 'MEDICAL TIMEOUT!', 'CHANGEOVER BREAK!', 'GREAT SAVE!!', 'YOU\'RE THE BEST!!', 'LEGEND MOVE!!', 'PERFECT CARE!!'],
+    vibe: ['GOOD VIBES!!', 'CROWD GOES WILD!!', 'STANDING OVATION!!', 'BEST ENERGY!!', 'THAT SMILE IS ACE!!'],
   },
 };
 SFX.ace = () => toneSeq([[180, 0.05], [880, 0.07], [1320, 0.16]], 'square', 0.18, 0.1);
@@ -783,14 +791,17 @@ function megaReaction(drink, name) {
   const ov = document.createElement('div');
   ov.className = 'cut' + (drink === 'water' ? ' waterCut' : '');
   // チェイサーは毎回必ずリカバリー称賛。お酒はドリンク専用＋共通からランダム
-  const cutPool = drink === 'water'
-    ? CUT_TEXTS[lang()].water
+  const cutPool = (drink === 'water' || drink === 'vibe')
+    ? CUT_TEXTS[lang()][drink]
     : (CUT_TEXTS[lang()][drink] || []).concat(CUT_TEXTS[lang()].common);
   const st = statsFor(S(), name);
-  const cups = Object.entries(st).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.taps), 0);
+  const cups = Object.entries(st).reduce((a, [k, v]) => a + (isNoCount(k) ? 0 : v.taps), 0);
   const wcups = st.water ? st.water.taps : 0;
+  const vcups = st.vibe ? st.vibe.taps : 0;
   const sub = drink === 'water'
     ? (lang() === 'ja' ? `${name}、水${fmtN(wcups)}杯目！ナイスケア！` : `${name}: water #${fmtN(wcups)}! Great care!`)
+    : drink === 'vibe'
+    ? (lang() === 'ja' ? `${name}、いいね${fmtN(vcups)}回目！！` : `${name}: vibe #${fmtN(vcups)}!!`)
     : (lang() === 'ja' ? `${name}、${fmtN(cups)}杯目！！` : `${name}: drink #${fmtN(cups)}!!`);
   ov.innerHTML = `<div class="cutBall">🎾</div><div class="cutBall b2">🎾</div>
     <div class="cutText">${cutPool[Math.floor(Math.random() * cutPool.length)]}</div>
@@ -892,8 +903,8 @@ function tap(name, ev, amt = 1) {
   else if (topAfter.join() !== topBefore.join()) { SFX.rank(); confetti(14); }
   // 5杯ごとの節目祝福（チェイサー除く）
   const stNow = statsFor(S(), name);
-  const cupsNow = Object.entries(stNow).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.taps), 0);
-  if (currentDrink !== 'water' && cupsNow > 0 && Number.isInteger(cupsNow) && cupsNow % 5 === 0) {
+  const cupsNow = Object.entries(stNow).reduce((a, [k, v]) => a + (isNoCount(k) ? 0 : v.taps), 0);
+  if (!isNoCount(currentDrink) && cupsNow > 0 && Number.isInteger(cupsNow) && cupsNow % 5 === 0) {
     confetti(20); SFX.add();
     showToast(Lf.milestone(name, cupsNow), 'goldToast');
   }
@@ -1208,7 +1219,7 @@ function render() {
   const wr = S().people.map(n => {
     const st2 = statsFor(S(), n);
     const w = st2.water ? st2.water.taps : 0;
-    const alcCups = Object.entries(st2).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.taps), 0);
+    const alcCups = Object.entries(st2).reduce((a, [k, v]) => a + (isNoCount(k) ? 0 : v.taps), 0);
     return { n, w, alcCups };
   }).filter(p => p.w > 0)
     .sort((a, b) => ((a.alcCups === 0 ? 0 : 1) - (b.alcCups === 0 ? 0 : 1)) || b.w - a.w || a.alcCups - b.alcCups)
@@ -1271,11 +1282,12 @@ function render() {
   const grid = document.getElementById('grid');
   grid.innerHTML = S().people.map(name => {
     const st = statsFor(S(), name);
-    const totalTaps = Object.entries(st).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.taps), 0);
+    const totalTaps = Object.entries(st).reduce((a, [k, v]) => a + (isNoCount(k) ? 0 : v.taps), 0);
     const glasses = Object.entries(st).map(([k, v]) => {
       const whole = Math.floor(v.taps), half = v.taps % 1 >= 0.25;
       const icons = DRINKS[k].icon.repeat(Math.min(whole, 12)) + (whole > 12 ? '…' : '') + (half ? '<span class="half">½</span>' : '');
-      return `<div>${icons}<span class="gN"> ${Lf.gN(v.taps)}</span></div>`;
+      const gLabel = k === 'vibe' && lang() === 'ja' ? `${fmtN(v.taps)}回` : Lf.gN(v.taps);
+      return `<div>${icons}<span class="gN"> ${gLabel}</span></div>`;
     }).join('');
     const kcal = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('kcal100_' + k) / 100, 0));
     const rounds = kcal / getMl('tennisRoundKcal');
