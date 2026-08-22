@@ -135,16 +135,17 @@
   }
   .person .del.edit { right: auto; left: 10px; }
   .person .dRow { display: flex; justify-content: center; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
-  /* コンパクト表示：詳細行を隠して1画面に大人数 */
+  /* コンパクト表示（.mini はカード個別に付く）：詳細行を隠して1画面に大人数 */
   .grid.compact { grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: 8px; }
-  .grid.compact .person { padding: 10px 8px; }
-  .grid.compact .glasses, .grid.compact .alc, .grid.compact .kcal,
-  .grid.compact .aquaLine, .grid.compact .luckLine { display: none; }
-  .grid.compact .person .name { font-size: 17px; margin-bottom: 2px; }
-  .grid.compact .person .count { font-size: 30px; }
-  .grid.compact .person .count .cupsUnit { font-size: 13px; }
-  .grid.compact .dBtn { font-size: 18px; padding: 5px 6px; border-radius: 9px; }
-  .grid.compact .dRow { gap: 3px; margin-top: 6px; }
+  .person.mini { padding: 10px 8px; }
+  .person.mini .glasses, .person.mini .alc, .person.mini .kcal,
+  .person.mini .aquaLine, .person.mini .luckLine { display: none; }
+  .person.mini .name { font-size: 17px; margin-bottom: 2px; }
+  .person.mini .count { font-size: 30px; }
+  .person.mini .count .cupsUnit { font-size: 13px; }
+  .person.mini .dBtn { font-size: 18px; padding: 5px 6px; border-radius: 9px; }
+  .person.mini .dRow { gap: 3px; margin-top: 6px; }
+  .person .del.sizeBtn { left: 44px; right: auto; }
   .person .dBtn {
     font-size: 24px; padding: 7px 9px; background: var(--bg); border: 1px solid var(--line);
     border-radius: 12px; cursor: pointer; transition: transform .08s;
@@ -312,8 +313,16 @@
     text-shadow: 0 2px 10px rgba(0,0,0,.9); opacity: 0; transition: opacity .5s;
   }
   .omMsg.show { opacity: 1; }
+  .eventCut { animation-duration: 7.2s; }
   .eventCut .cutText { color: #ffe08a; }
   .eventCut .cutIcon { font-size: 120px; }
+  .buildFlash { position: absolute; inset: 0; animation: flashBg .22s linear infinite alternate; }
+  @keyframes flashBg { from { background: rgba(240, 184, 64, .07); } to { background: rgba(192, 80, 64, .26); } }
+  .cutText.buildMark { top: 45%; font-size: min(120px, 17vw); animation: buildPulse .3s ease-in-out infinite alternate; }
+  @keyframes buildPulse {
+    from { transform: translate(-50%, -50%) scale(.85) rotate(-5deg); }
+    to { transform: translate(-50%, -50%) scale(1.3) rotate(5deg); }
+  }
   .hype {
     position: fixed; z-index: 97; font-weight: 900; font-size: 38px; color: var(--amber);
     text-shadow: 0 2px 12px rgba(0,0,0,.6); pointer-events: none; white-space: nowrap;
@@ -382,6 +391,7 @@
 <header>
   <h1 id="appTitle">🍻 GG グビロワイヤル</h1>
   <button class="eqToggle" id="langBtn" onclick="toggleLang()">EN</button>
+  <button class="eqToggle" id="sportBtn" onclick="cycleSport()">🎾</button>
   <div class="bottle" id="bottleWrap">
     <div class="label"><span id="bottleLabel">ニッカ残量</span><span id="bottleText"></span></div>
     <div class="bar"><div id="bottleBar"></div></div>
@@ -549,10 +559,21 @@ function applyStatic() {
   document.getElementById('commentInput').placeholder = T('commentPh');
   document.getElementById('langBtn').textContent = lang() === 'ja' ? 'EN' : '日本語';
   document.getElementById('btnCompact').textContent = store.settings.compact ? T('btnCompactOn') : T('btnCompactOff');
+  document.getElementById('sportBtn').textContent = SPORTS[sport()];
 }
+const cardSizeOv = {}; // カード個別のサイズ上書き（'compact'|'detail'）
 function toggleCompact() {
   store.settings.compact = !store.settings.compact;
+  for (const k of Object.keys(cardSizeOv)) delete cardSizeOv[k]; // 全体切替で個別上書きをリセット
   SFX.click(); save(); applyStatic(); render();
+}
+function isMini(name) {
+  return cardSizeOv[name] ? cardSizeOv[name] === 'compact' : !!store.settings.compact;
+}
+function toggleCardSize(name, ev) {
+  ev.stopPropagation();
+  cardSizeOv[name] = isMini(name) ? 'detail' : 'compact';
+  SFX.click(); render();
 }
 function toggleLang() {
   store.settings.lang = lang() === 'ja' ? 'en' : 'ja';
@@ -733,16 +754,47 @@ const HYPE_COMMON = {
   ja: ['カンパーイ！', 'うぇーい！', 'Cheers!🍻', 'パーティー！', 'いいねいいね！', 'まだまだいける！'],
   en: ['Cheers!🍻', 'Party time!', 'Let\'s gooo!', 'One more!', 'Wooo!'],
 };
+// スポーツテーマ（🎾⚽⚾巡回・実況とボールが変わる）
+const SPORTS = { tennis: '🎾', football: '⚽', baseball: '⚾' };
+const sport = () => (store.settings && store.settings.sport) || 'tennis';
+function cycleSport() {
+  const keys = Object.keys(SPORTS);
+  store.settings.sport = keys[(keys.indexOf(sport()) + 1) % keys.length];
+  SFX.tab(); save();
+  document.getElementById('sportBtn').textContent = SPORTS[sport()];
+}
+const SPORT_COMMON = {
+  football: {
+    ja: ['ゴォォォル！！', 'ゴラッソ！！', 'ハットトリック級！！', 'ナイスアシスト！！', 'ロスタイム弾！！', 'PK成功！！', 'オーバーヘッド！！', 'クリーンシート！！', 'あっぱれ！！'],
+    en: ['GOOOAL!!', 'GOLAZO!!', 'HAT-TRICK CLASS!!', 'NICE ASSIST!!', 'INJURY-TIME WINNER!!', 'PENALTY SCORED!!', 'OVERHEAD KICK!!', 'CLEAN SHEET!!'],
+  },
+  baseball: {
+    ja: ['ホームラン！！', '場外弾！！', '満塁弾級！！', 'ナイスバッティング！！', '三振奪取！！', 'サヨナラ勝ち！！', '盗塁成功！！', '大あっぱれ！！'],
+    en: ['HOME RUN!!', 'OUT OF THE PARK!!', 'GRAND SLAM!!', 'NICE HIT!!', 'STRIKEOUT!!', 'WALK-OFF WIN!!', 'STOLEN BASE!!'],
+  },
+};
+// 🎆 花火（和風演出：優勝・大大吉で打ち上げ）
+function hanabi(n = 4) {
+  for (let i = 0; i < n; i++) {
+    const h = document.createElement('div');
+    h.className = 'cracker'; h.textContent = i % 2 ? '🎆' : '🎇';
+    h.style.left = (10 + Math.random() * 75) + '%';
+    h.style.top = (8 + Math.random() * 30) + '%';
+    h.style.animationDelay = (i * 0.25) + 's';
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 2200);
+  }
+}
 const CUT_TEXTS = {
   ja: {
-    common: ['サービスエース！！', 'ナイスボレー！！', 'リターンエース！！', 'ラブゲーム！！', 'デュース！もう一杯！', 'マッチポイント！？', 'グランドスラム級！！', 'タイブレーク！！', 'ウィナー！！', 'ダウンザライン！！', 'ブレークポイント！！', 'コードボール！ラッキー！！', '40-0！！'],
+    common: ['サービスエース！！', 'ナイスボレー！！', 'リターンエース！！', 'ラブゲーム！！', 'デュース！もう一杯！', 'マッチポイント！？', 'グランドスラム級！！', 'タイブレーク！！', 'ウィナー！！', 'ダウンザライン！！', 'ブレークポイント！！', 'コードボール！ラッキー！！', '40-0！！', 'あっぱれ！！', '天晴れの飲みっぷり！！', '豪傑！！'],
     whisky: ['パワーサーブ！！', 'ストレートエース！！', 'ビッグサーバー登場！！', 'フォルトなし！！'],
     beer: ['スマッシュ！！', 'ファーストサーブ成功！！', 'ストレート勝ち！！'],
     wine: ['ドロップショット！！', 'エレガントなロブ！！', 'タッチの芸術！！'],
     cocktail: ['トリックショット！！', 'アンダーサーブ成功！！', 'スーパープレー！！'],
     sake: ['ジャパニーズスピン！！', '和のドライブ！！', 'サムライエース！！'],
     water: ['ナイスリカバリー！！', 'ナイスディフェンス！！', 'メディカルタイムアウト！', 'チェンジコート休憩！', 'ナイスセーブ！！', 'あなた最高！！', '神リカバリー！！', 'えらすぎる！！', '完璧なケア！！'],
-    vibe: ['ナイスバイブス！！', '会場沸いてる！！', 'スタンディングオベーション！！', 'ノリ最高！！', '観客大興奮！！', 'その笑顔がエース級！！'],
+    vibe: ['ナイスバイブス！！', '会場沸いてる！！', 'スタンディングオベーション！！', 'ノリ最高！！', '観客大興奮！！', 'その笑顔がエース級！！', '座布団一枚！！', 'いよっ、日本一！！'],
   },
   en: {
     common: ['SERVICE ACE!!', 'NICE VOLLEY!!', 'RETURN ACE!!', 'LOVE GAME!!', 'DEUCE! ONE MORE!', 'MATCH POINT!?', 'GRAND SLAM!!', 'TIEBREAK!!', 'WINNER!!', 'DOWN THE LINE!!', 'BREAK POINT!!', 'LET CORD! LUCKY!!', '40-LOVE!!'],
@@ -809,6 +861,7 @@ function omikuji(name) {
     ov.querySelector('.omMsg').textContent = msg;
     ov.querySelector('.omMsg').classList.add('show');
     SFX.champ(); if (!isKyo) confetti(30);
+    if (label.includes('大大吉') || label.includes('MEGA')) hanabi(5); // 🎆レア吉は花火
     (S().fortunes || (S().fortunes = [])).push({ t: Date.now(), person: name, label });
     save(); render();
   }, 2500);
@@ -822,7 +875,9 @@ function megaReaction(drink, name) {
   // チェイサーは毎回必ずリカバリー称賛。お酒はドリンク専用＋共通からランダム
   const cutPool = (drink === 'water' || drink === 'vibe')
     ? CUT_TEXTS[lang()][drink]
-    : (CUT_TEXTS[lang()][drink] || []).concat(CUT_TEXTS[lang()].common);
+    : sport() === 'tennis'
+    ? (CUT_TEXTS[lang()][drink] || []).concat(CUT_TEXTS[lang()].common)
+    : SPORT_COMMON[sport()][lang()];
   const st = statsFor(S(), name);
   const cups = Object.entries(st).reduce((a, [k, v]) => a + (isNoCount(k) ? 0 : v.taps), 0);
   const wcups = st.water ? st.water.taps : 0;
@@ -832,7 +887,8 @@ function megaReaction(drink, name) {
     : drink === 'vibe'
     ? (lang() === 'ja' ? `${name}、いいね${fmtN(vcups)}回目！！` : `${name}: vibe #${fmtN(vcups)}!!`)
     : (lang() === 'ja' ? `${name}、${fmtN(cups)}杯目！！` : `${name}: drink #${fmtN(cups)}!!`);
-  ov.innerHTML = `<div class="cutBall">🎾</div><div class="cutBall b2">🎾</div>
+  const ball = SPORTS[sport()];
+  ov.innerHTML = `<div class="cutBall">${ball}</div><div class="cutBall b2">${ball}</div>
     <div class="cutText">${cutPool[Math.floor(Math.random() * cutPool.length)]}</div>
     <div class="cutSub">${sub}</div>
     <div class="cutIcon">${DRINKS[drink].icon}</div>`;
@@ -873,26 +929,67 @@ function top3Names() {
 
 // ---- わちゃわちゃイベント（ランダム発動＋放置催促） ----
 const PARTY_EVENTS = {
-  ja: [['🍻', '一斉カンパイターイム！！'], ['🎾', 'タイブレーク突入！ここで一杯！'], ['💧', 'チェンジエンド！全員水を飲め！'], ['👑', 'チャンピオンシップポイント！！'], ['🎾', 'セカンドセット開始！！'], ['🎲', 'レット！ラッキータイム！'], ['🔥', 'ブレークチャンス！攻めろ！']],
-  en: [['🍻', 'GROUP KANPAI TIME!!'], ['🎾', 'TIEBREAK! One more round!'], ['💧', 'CHANGE OF ENDS! Hydrate!'], ['👑', 'CHAMPIONSHIP POINT!!'], ['🎾', 'SECOND SET!!'], ['🎲', 'LET! LUCKY TIME!'], ['🔥', 'BREAK CHANCE!']],
+  tennis: {
+    ja: [['🍻', '一斉カンパイターイム！！'], ['🎾', 'タイブレーク突入！ここで一杯！'], ['💧', 'チェンジエンド！全員水を飲め！'], ['👑', 'チャンピオンシップポイント！！'], ['🎾', 'セカンドセット開始！！'], ['🎲', 'レット！ラッキータイム！'], ['🔥', 'ブレークチャンス！攻めろ！'], ['🏮', '宴もたけなわ！！']],
+    en: [['🍻', 'GROUP KANPAI TIME!!'], ['🎾', 'TIEBREAK! One more round!'], ['💧', 'CHANGE OF ENDS! Hydrate!'], ['👑', 'CHAMPIONSHIP POINT!!'], ['🎾', 'SECOND SET!!'], ['🎲', 'LET! LUCKY TIME!'], ['🔥', 'BREAK CHANCE!']],
+  },
+  football: {
+    ja: [['🍻', 'キックオフ！一斉カンパイ！'], ['⚽', 'ハーフタイム！水分補給！'], ['🔥', 'ロスタイム突入！ラストオーダー！？'], ['👑', '優勝トロフィーは誰の手に！？'], ['⚽', 'コーナーキックのチャンス！'], ['🏮', '宴もたけなわ！！']],
+    en: [['🍻', 'KICK-OFF! Cheers all!'], ['⚽', 'HALF-TIME! Hydrate!'], ['🔥', 'INJURY TIME! Last orders!?'], ['👑', 'WHO LIFTS THE TROPHY!?'], ['⚽', 'CORNER KICK CHANCE!']],
+  },
+  baseball: {
+    ja: [['🍻', 'プレイボール！カンパイ！'], ['⚾', 'ラッキーセブン！歌って飲もう！'], ['💧', 'ベンチに戻って水分補給！'], ['👑', 'MVP争い白熱中！！'], ['⚾', '代打、あなた！'], ['🏮', '宴もたけなわ！！']],
+    en: [['🍻', 'PLAY BALL! Cheers!'], ['⚾', 'LUCKY 7TH! Sing & drink!'], ['💧', 'Back to the dugout — hydrate!'], ['👑', 'MVP RACE HEATING UP!!'], ['⚾', 'PINCH HITTER: YOU!']],
+  },
 };
 const IDLE_EVENTS = {
   ja: [['⏰', 'タイムバイオレーション！手が止まってるぞ！'], ['🎾', 'プレー再開！みんな飲んでる〜！？'], ['🥂', 'チェンジエンド終了！次のゲームへ！'], ['😪', 'セットブレイク長すぎ！？']],
   en: [['⏰', 'TIME VIOLATION! Hands are idle!'], ['🎾', 'PLAY ON! Everyone still drinking?!'], ['🥂', 'Changeover over! Next game!'], ['😪', 'Set break too long!?']],
 };
 let lastTap = Date.now();
+// パチンコ的タメ音：ごろごろごろ…（加速しつつ音程上昇）
+function buildUp(dur = 2.2) {
+  let t = 0, gap = 0.22;
+  while (t < dur) {
+    toneSeq([[180 + t * 260, 0.05]], 'square', 0.15, t);
+    t += gap; gap = Math.max(0.06, gap * 0.88);
+  }
+}
+// ガシャーン！（クラッシュ＋低音ドン＋ファンファーレ）
+function crashSfx() {
+  clap(0); clap(0.04); clap(0.08);
+  toneSeq([[80, 0.5]], 'square', 0.35, 0.05);
+  toneSeq([[523, 0.09], [659, 0.09], [784, 0.09], [1047, 0.3]], 'square', 0.2, 0.4);
+}
 function partyEvent(idle) {
-  const list = (idle ? IDLE_EVENTS : PARTY_EVENTS)[lang()];
-  const [icon, text] = list[Math.floor(Math.random() * list.length)];
+  const list = idle ? IDLE_EVENTS[lang()] : PARTY_EVENTS[sport()][lang()];
+  let [icon, text] = list[Math.floor(Math.random() * list.length)];
+  // 🎰 レアフィーバー（ランダムイベントの15%）
+  const fever = !idle && Math.random() < 0.15;
+  if (fever) { icon = '🎰'; text = lang() === 'ja' ? 'フィーバータイム！！全員一杯！！' : 'FEVER TIME!! Everyone drinks!!'; }
+  const ball = SPORTS[sport()];
   const ov = document.createElement('div');
   ov.className = 'cut eventCut';
-  ov.innerHTML = `<div class="cutBall">🎾</div><div class="cutBall b2">🎾</div><div class="cutText">${text}</div><div class="cutIcon">${icon}</div>`;
+  // 第1幕：タメ（フラッシュ＋！？＋ごろごろ音＋連続シェイク）
+  ov.innerHTML = `<div class="buildFlash"></div><div class="cutText buildMark">${lang() === 'ja' ? '！？' : '!?'}</div>`;
   document.body.appendChild(ov);
-  setTimeout(() => ov.remove(), 4600);
-  SFX.close(); confetti(30);
-  document.body.classList.remove('shake');
-  void document.body.offsetWidth;
-  document.body.classList.add('shake');
+  buildUp(2.2);
+  let shakes = 0;
+  const shakeIv = setInterval(() => {
+    document.body.classList.remove('shake');
+    void document.body.offsetWidth;
+    document.body.classList.add('shake');
+    if (++shakes > 6) clearInterval(shakeIv);
+  }, 340);
+  // 第2幕：ガシャーン！本編発表
+  setTimeout(() => {
+    clearInterval(shakeIv);
+    ov.innerHTML = `<div class="cutBall">${ball}</div><div class="cutBall b2">${ball}</div><div class="cutText">${text}</div><div class="cutIcon">${icon}</div>`;
+    crashSfx();
+    confetti(fever ? 80 : 30);
+    if (fever) hanabi(6);
+  }, 2300);
+  setTimeout(() => ov.remove(), 6900);
 }
 // 放置チェック：会の最中にタップが止まったら不定期に催促（60〜100秒ランダム）
 let lastNag = Date.now();
@@ -1111,7 +1208,7 @@ function finale(done) {
   at(t, () => { // だーん！！
     ov.querySelector('.finChamp').textContent = `${ranked[0].n}　${eqLabel(ranked[0].g)}`;
     ov.querySelector('.finChampWrap').classList.add('show');
-    SFX.champ(); SFX.close(); confetti(80);
+    SFX.champ(); SFX.close(); confetti(80); hanabi(6);
     timers.push(setTimeout(() => confetti(60), 900));
   });
   t += 2800;
@@ -1348,9 +1445,11 @@ function render() {
         onpointerdown="pressStart('${esc}', event, '${k}')" onpointerup="pressEnd()" onpointerleave="pressEnd()"
         onclick="dClick('${esc}', event, '${k}')">${DRINKS[k].icon}</button>`
     ).join('');
-    return `<div class="person ${cardCls}">
+    const mini = isMini(name);
+    return `<div class="person ${cardCls}${mini ? ' mini' : ''}">
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
       <div class="del edit" onclick="renamePerson('${esc}', event)">✎</div>
+      <div class="del sizeBtn" onclick="toggleCardSize('${esc}', event)">${mini ? '📖' : '🗜️'}</div>
       <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${aquaHero === name || soberBlue ? '💧' : ''}${name}</div>
       <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">${T('cupsUnit')}</span></div>
       <div class="dRow">${dRow}</div>
