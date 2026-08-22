@@ -134,12 +134,13 @@
     padding: 4px 8px; opacity: .5;
   }
   .person .del.edit { right: auto; left: 10px; }
-  .person .vibeBtn {
-    position: absolute; bottom: 8px; right: 10px; font-size: 24px; padding: 4px 8px;
-    cursor: pointer; filter: drop-shadow(0 0 6px rgba(240, 184, 64, .5));
-    transition: transform .1s;
+  .person .dRow { display: flex; justify-content: center; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+  .person .dBtn {
+    font-size: 24px; padding: 7px 9px; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 12px; cursor: pointer; transition: transform .08s;
   }
-  .person .vibeBtn:active { transform: scale(1.4); }
+  .person .dBtn:active { transform: scale(1.25); background: var(--card-tap); }
+  .person .dBtn.dVibe { border-color: var(--amber-dim); filter: drop-shadow(0 0 5px rgba(240, 184, 64, .45)); }
   .addCard {
     border: 2px dashed var(--line); border-radius: 16px; display: flex; align-items: center;
     justify-content: center; font-size: 17px; color: var(--sub); padding: 18px; cursor: pointer; min-height: 130px;
@@ -366,7 +367,6 @@
 <header>
   <h1 id="appTitle">🍻 GG グビロワイヤル</h1>
   <button class="eqToggle" id="langBtn" onclick="toggleLang()">EN</button>
-  <div class="drinkTabs" id="drinkTabs"></div>
   <div class="bottle" id="bottleWrap">
     <div class="label"><span id="bottleLabel">ニッカ残量</span><span id="bottleText"></span></div>
     <div class="bar"><div id="bottleBar"></div></div>
@@ -430,7 +430,7 @@ const lang = () => (store.settings && store.settings.lang) || 'ja';
 const L = {
   appTitle: { ja: '🍻 GG グビロワイヤル', en: '🍻 GG Gubi Royale' },
   bottleLabel: { ja: 'ニッカ残量', en: 'Nikka left' },
-  hintBar: { ja: '💡 タップ＝1杯　長押し（0.5秒）＝半杯½', en: '💡 Tap = 1 drink / long-press (0.5s) = half ½' },
+  hintBar: { ja: '💡 アイコンをタップ＝1杯　長押し（0.5秒）＝半杯½　😆＝いいね', en: '💡 Tap icon = 1 drink / long-press = half ½ / 😆 = cheer' },
   btnUndo: { ja: '↩︎ 1つ戻す', en: '↩︎ Undo' },
   btnComment: { ja: '💬 コメント', en: '💬 Comments' },
   btnHistory: { ja: '📜 過去の会', en: '📜 History' },
@@ -850,12 +850,12 @@ function top3Names() {
 
 // ---- わちゃわちゃイベント（ランダム発動＋放置催促） ----
 const PARTY_EVENTS = {
-  ja: [['🍻', '一斉カンパイターイム！！'], ['🎲', 'ラッキータイム！今飲むと運気UP！'], ['💧', 'ウォーターブレイク！全員水を飲め！'], ['🎾', 'サドンデス！ここで一杯決めろ！'], ['👑', '王座争奪戦ラウンド開始！！']],
-  en: [['🍻', 'GROUP KANPAI TIME!!'], ['🎲', 'LUCKY TIME! Drink now for good luck!'], ['💧', 'WATER BREAK! Everyone hydrate!'], ['🎾', 'SUDDEN DEATH! Land one now!'], ['👑', 'BATTLE FOR THE THRONE!!']],
+  ja: [['🍻', '一斉カンパイターイム！！'], ['🎾', 'タイブレーク突入！ここで一杯！'], ['💧', 'チェンジエンド！全員水を飲め！'], ['👑', 'チャンピオンシップポイント！！'], ['🎾', 'セカンドセット開始！！'], ['🎲', 'レット！ラッキータイム！'], ['🔥', 'ブレークチャンス！攻めろ！']],
+  en: [['🍻', 'GROUP KANPAI TIME!!'], ['🎾', 'TIEBREAK! One more round!'], ['💧', 'CHANGE OF ENDS! Hydrate!'], ['👑', 'CHAMPIONSHIP POINT!!'], ['🎾', 'SECOND SET!!'], ['🎲', 'LET! LUCKY TIME!'], ['🔥', 'BREAK CHANCE!']],
 };
 const IDLE_EVENTS = {
-  ja: [['🍻', 'みんな飲んでる〜！？'], ['😪', '手が止まってるぞ！？'], ['🥂', 'グラス空いてない？次いこ次！'], ['⏰', '3分間タップなし！飲み係どこ！？']],
-  en: [['🍻', 'Everyone still drinking?!'], ['😪', 'Hands are idle?!'], ['🥂', 'Empty glasses? Next round!'], ['⏰', '3 min without a tap!?']],
+  ja: [['⏰', 'タイムバイオレーション！手が止まってるぞ！'], ['🎾', 'プレー再開！みんな飲んでる〜！？'], ['🥂', 'チェンジエンド終了！次のゲームへ！'], ['😪', 'セットブレイク長すぎ！？']],
+  en: [['⏰', 'TIME VIOLATION! Hands are idle!'], ['🎾', 'PLAY ON! Everyone still drinking?!'], ['🥂', 'Changeover over! Next game!'], ['😪', 'Set break too long!?']],
 };
 let lastTap = Date.now();
 function partyEvent(idle) {
@@ -871,32 +871,32 @@ function partyEvent(idle) {
   void document.body.offsetWidth;
   document.body.classList.add('shake');
 }
-// 放置チェック：会の最中にタップが止まったら不定期に催促（90秒〜2.5分ランダム）
+// 放置チェック：会の最中にタップが止まったら不定期に催促（60〜100秒ランダム）
 let lastNag = Date.now();
-let idleThresh = 90000 + Math.random() * 60000;
+let idleThresh = 60000 + Math.random() * 40000;
 setInterval(() => {
   if (!S().events.length) return;
   if (Date.now() - Math.max(lastTap, lastNag) >= idleThresh) {
     partyEvent(true);
     lastNag = Date.now();
-    idleThresh = 90000 + Math.random() * 60000;
+    idleThresh = 60000 + Math.random() * 40000;
   }
 }, 15000);
-// ランダムイベント：2〜5分ごと（不定期）
+// ランダムイベント：1.5〜3分ごと（不定期）
 (function scheduleEvent() {
   setTimeout(() => {
     if (S().events.length) partyEvent(false);
     scheduleEvent();
-  }, (2 + Math.random() * 3) * 60000);
+  }, (1.5 + Math.random() * 1.5) * 60000);
 })();
 
 // ---- タップ（1杯）／長押し（半杯） ----
-function tap(name, ev, amt = 1) {
+function tap(name, ev, amt = 1, drink = 'whisky') {
   lastTap = Date.now();
   const gBefore = alcGFor(name);
   const topBefore = top3Names();
-  playSound(currentDrink);
-  S().events.push({ t: Date.now(), person: name, drink: currentDrink, amt });
+  playSound(drink);
+  S().events.push({ t: Date.now(), person: name, drink, amt });
   save(); render();
   const topAfter = top3Names();
   const gAfter = alcGFor(name);
@@ -910,12 +910,12 @@ function tap(name, ev, amt = 1) {
   // 5杯ごとの節目祝福（チェイサー除く）
   const stNow = statsFor(S(), name);
   const cupsNow = Object.entries(stNow).reduce((a, [k, v]) => a + (isNoCount(k) ? 0 : v.taps), 0);
-  if (!isNoCount(currentDrink) && cupsNow > 0 && Number.isInteger(cupsNow) && cupsNow % 5 === 0) {
+  if (!isNoCount(drink) && cupsNow > 0 && Number.isInteger(cupsNow) && cupsNow % 5 === 0) {
     confetti(20); SFX.add();
     showToast(Lf.milestone(name, cupsNow), 'goldToast');
   }
   // 💧水3杯ごとの水分マスター祝福
-  if (currentDrink === 'water') {
+  if (drink === 'water') {
     const w = (stNow.water || { taps: 0 }).taps;
     if (w > 0 && Number.isInteger(w) && w % 3 === 0) {
       showToast(Lf.aquaToast(name, w), 'aquaToast'); SFX.add();
@@ -929,13 +929,13 @@ function tap(name, ev, amt = 1) {
     setTimeout(() => p.remove(), 700);
     // グビグビ（グラスが傾く）
     const gl = document.createElement('div');
-    gl.className = 'gulp'; gl.textContent = DRINKS[currentDrink].icon;
+    gl.className = 'gulp'; gl.textContent = DRINKS[drink].icon;
     gl.style.left = (ev.clientX - 22) + 'px'; gl.style.top = (ev.clientY - 12) + 'px';
     document.body.appendChild(gl);
     setTimeout(() => gl.remove(), 1100);
     sparks(ev.clientX, ev.clientY);
     if (Math.random() < 0.2) omikuji(name);
-    else megaReaction(currentDrink, name);
+    else megaReaction(drink, name);
   }
 }
 // 飲みすぎ警報：しきい値を超えた瞬間にピコンピコン＋トースト
@@ -960,27 +960,15 @@ function alertWarn(name, lvl) {
 }
 
 let pressTimer = null, longPressed = false;
-function pressStart(name, ev) {
-  if (ev.target.classList.contains('del') || ev.target.classList.contains('vibeBtn')) return;
+function pressStart(name, ev, drink) {
   longPressed = false;
-  pressTimer = setTimeout(() => { longPressed = true; tap(name, ev, 0.5); }, 500);
+  pressTimer = setTimeout(() => { longPressed = true; tap(name, ev, 0.5, drink); }, 500);
 }
 function pressEnd() { clearTimeout(pressTimer); }
-function cardClick(name, ev) {
-  if (ev.target.classList.contains('del') || ev.target.classList.contains('vibeBtn')) return;
-  if (longPressed) { longPressed = false; return; } // 長押し済みならclickは無視
-  tap(name, ev, 1);
-}
-// 😆いいね：カード右下のボタンでワンタップ発動（モード切替不要・完全ノーカン）
-function vibeTap(name, ev) {
+function dClick(name, ev, drink) {
   ev.stopPropagation();
-  lastTap = Date.now();
-  playSound('vibe');
-  S().events.push({ t: Date.now(), person: name, drink: 'vibe', amt: 1 });
-  save(); render();
-  sparks(ev.clientX, ev.clientY);
-  if (Math.random() < 0.2) omikuji(name);
-  else megaReaction('vibe', name);
+  if (longPressed) { longPressed = false; return; } // 長押し済みならclickは無視
+  tap(name, ev, 1, drink);
 }
 function undo() {
   const e = S().events.pop();
@@ -1208,11 +1196,6 @@ function renderSettings() {
 function toggle(id) { document.getElementById(id).classList.toggle('hidden'); }
 
 function render() {
-  // ドリンクタブ
-  document.getElementById('drinkTabs').innerHTML = Object.entries(DRINKS).filter(([k]) => k !== 'vibe').map(([k, d]) =>
-    `<button class="${k === currentDrink ? 'active' : ''}" onclick="currentDrink='${k}';SFX.tab();render()">${d.icon} ${lang() === 'en' ? d.en : d.label}</button>`
-  ).join('');
-
   // ボトル残量（ウイスキーのみ）
   const wrap = document.getElementById('bottleWrap');
   const bottleMl = getMl('bottle');
@@ -1314,13 +1297,17 @@ function render() {
     const alcMl = Object.entries(st).reduce((a, [k, v]) => a + (k === 'water' ? 0 : v.ml), 0);
     const alcG = Math.round(Object.entries(st).reduce((a, [k, v]) => a + v.ml * getMl('abv_' + k) / 100 * 0.8, 0));
     // チェイサーがお酒と同量以上なら判定を1段階マイルドに
-    const goodChaser = alcMl > 0 && waterMl >= alcMl;
+    // チェイサー段階緩和：水が酒の半分以上→1段階（赤→オレンジ）、同量以上→2段階＋水色グロー
+    const ratio = alcMl > 0 ? waterMl / alcMl : 0;
     let ti = alcG >= 60 ? 3 : alcG >= 40 ? 2 : alcG >= 20 ? 1 : 0;
-    if (goodChaser && ti > 0) ti--;
+    if (ratio >= 1) ti = Math.max(0, ti - 2);
+    else if (ratio >= 0.5) ti = Math.max(0, ti - 1);
+    const hydratedBlue = alcMl > 0 && ratio >= 1;
     const tier = ['t1', 't2', 't3', 't4'][ti];
     let mood = L.moods[lang()][ti];
-    if (goodChaser) mood += T('hydrated');
-    else if (alcG >= 40 && waterMl < alcMl * 0.5) mood += T('drinkWater');
+    if (hydratedBlue) mood += T('hydrated');
+    else if (alcMl > 0 && ratio >= 0.5) mood += (lang() === 'ja' ? '（💧回復中）' : ' (💧recovering)');
+    else if (alcG >= 40) mood += T('drinkWater');
     if (alcG >= 20) {
       const end = new Date(Date.now() + alcG / getMl('burnGh') * 3600e3);
       const tomorrow = end.getDate() !== new Date().getDate();
@@ -1329,14 +1316,18 @@ function render() {
     const esc = name.replace(/'/g, "\\'");
     // 飲まない人（純アル0で水あり）は全員ちゃんと青く光る。水最多ヒーローも青
     const soberBlue = alcG === 0 && wTaps > 0;
-    const cardCls = tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : (soberBlue || aquaHero === name ? 'aqua' : '');
-    return `<div class="person ${cardCls}" onclick="cardClick('${esc}', event)"
-      onpointerdown="pressStart('${esc}', event)" onpointerup="pressEnd()" onpointerleave="pressEnd()">
+    const cardCls = tier === 't3' ? 'warn3' : tier === 't4' ? 'warn4' : (soberBlue || hydratedBlue || aquaHero === name ? 'aqua' : '');
+    const dRow = Object.keys(DRINKS).map(k =>
+      `<button class="dBtn${k === 'vibe' ? ' dVibe' : ''}"
+        onpointerdown="pressStart('${esc}', event, '${k}')" onpointerup="pressEnd()" onpointerleave="pressEnd()"
+        onclick="dClick('${esc}', event, '${k}')">${DRINKS[k].icon}</button>`
+    ).join('');
+    return `<div class="person ${cardCls}">
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
       <div class="del edit" onclick="renamePerson('${esc}', event)">✎</div>
-      <div class="vibeBtn" onclick="vibeTap('${esc}', event)">😆</div>
       <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${aquaHero === name || soberBlue ? '💧' : ''}${name}</div>
       <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">${T('cupsUnit')}</span></div>
+      <div class="dRow">${dRow}</div>
       <div class="glasses">${glasses || '&nbsp;'}</div>
       <div class="alc ${tier}">🍶 ${Math.round(alcMl)}ml＝${eqLabel(alcG)}・💧${Math.round(waterMl)}ml　${mood}</div>
       ${(() => {
