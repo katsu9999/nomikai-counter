@@ -143,9 +143,15 @@
   .person.mini .name { font-size: 17px; margin-bottom: 2px; }
   .person.mini .count { font-size: 30px; }
   .person.mini .count .cupsUnit { font-size: 13px; }
-  .person.mini .dBtn { font-size: 18px; padding: 5px 6px; border-radius: 9px; }
+  .person.mini .dBtn { font-size: 15px; padding: 4px 5px; border-radius: 8px; }
   .person.mini .dRow { gap: 3px; margin-top: 6px; }
+  /* コンパクトグリッド内で詳細化した人は2枠分に広がって主役化（他は小さいまま） */
+  @media (min-width: 500px) {
+    .grid.compact .person:not(.mini) { grid-column: span 2; }
+  }
   .person .del.sizeBtn { left: 44px; right: auto; }
+  .miniHint { margin-top: 6px; font-size: 11px; color: var(--sub); }
+  .person.mini { cursor: pointer; }
   .person .dBtn {
     font-size: 24px; padding: 7px 9px; background: var(--bg); border: 1px solid var(--line);
     border-radius: 12px; cursor: pointer; transition: transform .08s;
@@ -316,6 +322,17 @@
   .eventCut { animation-duration: 7.2s; }
   .eventCut .cutText { color: #ffe08a; }
   .eventCut .cutIcon { font-size: 120px; }
+  .tapFlash {
+    position: fixed; inset: 0; z-index: 94; pointer-events: none;
+    box-shadow: inset 0 0 90px 22px rgba(240, 184, 64, .5);
+    animation: tapFlashA .35s ease-out forwards;
+  }
+  @keyframes tapFlashA { from { opacity: 1; } to { opacity: 0; } }
+  .feverFlash { position: fixed; inset: 0; z-index: 94; pointer-events: none; animation: feverA .12s linear 9 alternate; }
+  @keyframes feverA {
+    from { background: rgba(240, 184, 64, .16); }
+    to { background: rgba(126, 196, 232, .2); }
+  }
   .buildFlash { position: absolute; inset: 0; animation: flashBg .22s linear infinite alternate; }
   @keyframes flashBg { from { background: rgba(240, 184, 64, .07); } to { background: rgba(192, 80, 64, .26); } }
   .cutText.buildMark { top: 45%; font-size: min(120px, 17vw); animation: buildPulse .3s ease-in-out infinite alternate; }
@@ -573,6 +590,12 @@ function isMini(name) {
 function toggleCardSize(name, ev) {
   ev.stopPropagation();
   cardSizeOv[name] = isMini(name) ? 'detail' : 'compact';
+  SFX.click(); render();
+}
+// ミニカードはカード自体のタップで詳細に開く（ボタン類は除外）
+function expandCard(name, ev) {
+  if (ev.target.closest('.dBtn') || ev.target.closest('.del')) return;
+  cardSizeOv[name] = 'detail';
   SFX.click(); render();
 }
 function toggleLang() {
@@ -838,7 +861,7 @@ function omikuji(name) {
   const ja = lang() === 'ja';
   const ov = document.createElement('div');
   ov.className = 'cut omikujiCut';
-  ov.innerHTML = `<div class="omBox">⛩️</div>
+  ov.innerHTML = `<div class="buildFlash"></div><div class="omBox">⛩️</div>
     <div class="cutText omTitle">${ja ? 'おみくじターイム！！' : 'FORTUNE TIME!!'}</div>
     <div class="omResult"></div><div class="omMsg"></div>`;
   document.body.appendChild(ov);
@@ -961,6 +984,22 @@ function crashSfx() {
   toneSeq([[80, 0.5]], 'square', 0.35, 0.05);
   toneSeq([[523, 0.09], [659, 0.09], [784, 0.09], [1047, 0.3]], 'square', 0.2, 0.4);
 }
+// 🎰 ミニフィーバー（タップの8%）：虹色ビカビカ＋コイン音＋連続シェイク
+function miniFever() {
+  const fv = document.createElement('div');
+  fv.className = 'feverFlash';
+  document.body.appendChild(fv);
+  setTimeout(() => fv.remove(), 1150);
+  toneSeq([[988, .06], [1319, .06], [1568, .14], [988, .06], [1319, .06], [1568, .22]], 'square', 0.16);
+  let s = 0;
+  const iv = setInterval(() => {
+    document.body.classList.remove('shake');
+    void document.body.offsetWidth;
+    document.body.classList.add('shake');
+    if (++s > 2) clearInterval(iv);
+  }, 200);
+  confetti(10);
+}
 function partyEvent(idle) {
   const list = idle ? IDLE_EVENTS[lang()] : PARTY_EVENTS[sport()][lang()];
   let [icon, text] = list[Math.floor(Math.random() * list.length)];
@@ -1002,12 +1041,12 @@ setInterval(() => {
     idleThresh = 60000 + Math.random() * 40000;
   }
 }, 15000);
-// ランダムイベント：1.5〜3分ごと（不定期）
+// ランダムイベント：1〜2分ごと（不定期）
 (function scheduleEvent() {
   setTimeout(() => {
     if (S().events.length) partyEvent(false);
     scheduleEvent();
-  }, (1.5 + Math.random() * 1.5) * 60000);
+  }, (1 + Math.random()) * 60000);
 })();
 
 // ---- タップ（1杯）／長押し（半杯） ----
@@ -1054,8 +1093,14 @@ function tap(name, ev, amt = 1, drink = 'whisky') {
     document.body.appendChild(gl);
     setTimeout(() => gl.remove(), 1100);
     sparks(ev.clientX, ev.clientY);
+    // 毎タップ：画面フチが金色にビカッ
+    const fl = document.createElement('div');
+    fl.className = 'tapFlash';
+    document.body.appendChild(fl);
+    setTimeout(() => fl.remove(), 400);
     if (Math.random() < 0.2) omikuji(name);
     else megaReaction(drink, name);
+    if (Math.random() < 0.08) miniFever();
   }
 }
 // 飲みすぎ警報：しきい値を超えた瞬間にピコンピコン＋トースト
@@ -1446,13 +1491,14 @@ function render() {
         onclick="dClick('${esc}', event, '${k}')">${DRINKS[k].icon}</button>`
     ).join('');
     const mini = isMini(name);
-    return `<div class="person ${cardCls}${mini ? ' mini' : ''}">
+    return `<div class="person ${cardCls}${mini ? ' mini' : ''}"${mini ? ` onclick="expandCard('${esc}', event)"` : ''}>
       <div class="del" onclick="removePerson('${esc}', event)">✕</div>
       <div class="del edit" onclick="renamePerson('${esc}', event)">✎</div>
       <div class="del sizeBtn" onclick="toggleCardSize('${esc}', event)">${mini ? '📖' : '🗜️'}</div>
       <div class="name">${ranked[0] && ranked[0].n === name ? '👑 ' : ''}${aquaHero === name || soberBlue ? '💧' : ''}${name}</div>
       <div class="count">${fmtN(totalTaps)}<span class="cupsUnit">${T('cupsUnit')}</span></div>
       <div class="dRow">${dRow}</div>
+      ${mini ? `<div class="miniHint">⌄ ${lang() === 'ja' ? 'タップで詳細' : 'tap for details'}</div>` : ''}
       <div class="glasses">${glasses || '&nbsp;'}</div>
       <div class="alc ${tier}">🍶 ${Math.round(alcMl)}ml＝${eqLabel(alcG)}・💧${Math.round(waterMl)}ml　${mood}</div>
       ${(() => {
