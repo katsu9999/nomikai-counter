@@ -212,6 +212,8 @@
     100% { transform: translate(-50%, -50%) scale(1.08) rotate(-3deg); opacity: 0; }
   }
   .cutIcon { position: absolute; top: 66%; left: 50%; transform: translateX(-50%); font-size: 96px; animation: crackerPop 1.4s ease-out forwards; }
+  .waterCut { background: radial-gradient(circle, rgba(0, 0, 0, 0) 40%, rgba(20, 60, 90, .55)); }
+  .waterCut .cutText { text-shadow: 0 0 26px #7ec4e8, 0 4px 0 #1a4a66; }
   .eventCut { animation-duration: 2.8s; }
   .eventCut .cutText { animation-duration: 2.8s; color: #ffe08a; }
   .eventCut .cutIcon { animation-duration: 2.8s; font-size: 120px; }
@@ -623,15 +625,34 @@ const HYPE_COMMON = {
   en: ['Cheers!🍻', 'Party time!', 'Let\'s gooo!', 'One more!', 'Wooo!'],
 };
 const CUT_TEXTS = {
-  ja: ['サービスエース！！', 'ナイスボレー！！', 'リターンエース！！', 'ラブゲーム！！', 'デュース！もう一杯！', 'マッチポイント！？', 'グランドスラム級！！'],
-  en: ['SERVICE ACE!!', 'NICE VOLLEY!!', 'RETURN ACE!!', 'LOVE GAME!!', 'DEUCE! ONE MORE!', 'MATCH POINT!?', 'GRAND SLAM!!'],
+  ja: {
+    common: ['サービスエース！！', 'ナイスボレー！！', 'リターンエース！！', 'ラブゲーム！！', 'デュース！もう一杯！', 'マッチポイント！？', 'グランドスラム級！！', 'タイブレーク！！', 'ウィナー！！', 'ダウンザライン！！', 'ブレークポイント！！', 'コードボール！ラッキー！！', '40-0！！'],
+    whisky: ['パワーサーブ！！', 'ストレートエース！！', 'ビッグサーバー登場！！', 'フォルトなし！！'],
+    beer: ['スマッシュ！！', 'ファーストサーブ成功！！', 'ストレート勝ち！！'],
+    wine: ['ドロップショット！！', 'エレガントなロブ！！', 'タッチの芸術！！'],
+    cocktail: ['トリックショット！！', 'アンダーサーブ成功！！', 'スーパープレー！！'],
+    sake: ['ジャパニーズスピン！！', '和のドライブ！！', 'サムライエース！！'],
+    water: ['ナイスリカバリー！！', 'ナイスディフェンス！！', 'メディカルタイムアウト！', 'チェンジコート休憩！', 'ナイスセーブ！！', 'あなた最高！！', '神リカバリー！！', 'えらすぎる！！', '完璧なケア！！'],
+  },
+  en: {
+    common: ['SERVICE ACE!!', 'NICE VOLLEY!!', 'RETURN ACE!!', 'LOVE GAME!!', 'DEUCE! ONE MORE!', 'MATCH POINT!?', 'GRAND SLAM!!', 'TIEBREAK!!', 'WINNER!!', 'DOWN THE LINE!!', 'BREAK POINT!!', 'LET CORD! LUCKY!!', '40-LOVE!!'],
+    whisky: ['POWER SERVE!!', 'STRAIGHT ACE!!', 'BIG SERVER!!', 'NO FAULTS!!'],
+    beer: ['SMASH!!', 'FIRST SERVE IN!!', 'STRAIGHT SETS!!'],
+    wine: ['DROP SHOT!!', 'ELEGANT LOB!!', 'PURE TOUCH!!'],
+    cocktail: ['TRICK SHOT!!', 'UNDERARM ACE!!', 'SUPER PLAY!!'],
+    sake: ['JAPANESE SPIN!!', 'SAMURAI ACE!!', 'RISING SHOT!!'],
+    water: ['NICE RECOVERY!!', 'NICE DEFENSE!!', 'MEDICAL TIMEOUT!', 'CHANGEOVER BREAK!', 'GREAT SAVE!!', 'YOU\'RE THE BEST!!', 'LEGEND MOVE!!', 'PERFECT CARE!!'],
+  },
 };
 SFX.ace = () => toneSeq([[180, 0.05], [880, 0.07], [1320, 0.16]], 'square', 0.18, 0.1);
 function megaReaction(drink) {
   // テニス実況ムービー：🎾が横切り、実況テキストがスラムイン、下でグラスがボーン
   const ov = document.createElement('div');
-  ov.className = 'cut';
-  const cutPool = CUT_TEXTS[lang()];
+  ov.className = 'cut' + (drink === 'water' ? ' waterCut' : '');
+  // チェイサーは毎回必ずリカバリー称賛。お酒はドリンク専用＋共通からランダム
+  const cutPool = drink === 'water'
+    ? CUT_TEXTS[lang()].water
+    : (CUT_TEXTS[lang()][drink] || []).concat(CUT_TEXTS[lang()].common);
   ov.innerHTML = `<div class="cutBall">🎾</div>
     <div class="cutText">${cutPool[Math.floor(Math.random() * cutPool.length)]}</div>
     <div class="cutIcon">${DRINKS[drink].icon}</div>`;
@@ -692,17 +713,23 @@ function partyEvent(idle) {
   void document.body.offsetWidth;
   document.body.classList.add('shake');
 }
-// 放置チェック：会の最中に3分タップがなければ催促
+// 放置チェック：会の最中にタップが止まったら不定期に催促（90秒〜2.5分ランダム）
+let lastNag = Date.now();
+let idleThresh = 90000 + Math.random() * 60000;
 setInterval(() => {
   if (!S().events.length) return;
-  if ((Date.now() - lastTap) >= 180000) { partyEvent(true); lastTap = Date.now(); }
-}, 20000);
-// ランダムイベント：4〜8分ごと
+  if (Date.now() - Math.max(lastTap, lastNag) >= idleThresh) {
+    partyEvent(true);
+    lastNag = Date.now();
+    idleThresh = 90000 + Math.random() * 60000;
+  }
+}, 15000);
+// ランダムイベント：2〜5分ごと（不定期）
 (function scheduleEvent() {
   setTimeout(() => {
     if (S().events.length) partyEvent(false);
     scheduleEvent();
-  }, (4 + Math.random() * 4) * 60000);
+  }, (2 + Math.random() * 3) * 60000);
 })();
 
 // ---- タップ（1杯）／長押し（半杯） ----
